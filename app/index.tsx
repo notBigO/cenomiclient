@@ -35,7 +35,7 @@ export default function HomeScreen() {
     setTimeout(() => {
       const botResponse = {
         id: messages.length + 2,
-        text: "That's great! Here's a few hints that should help you get started.",
+        text: "Hello! Im still under development",
         isUser: false,
       };
       setMessages((prev) => [...prev, botResponse]);
@@ -111,7 +111,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="paper-plane-outline"
                 size={22}
-                color={message.trim() ? "#f97316" : "#ccc"}
+                color={message.trim() ? "#000" : "#ccc"}
               />
             </TouchableOpacity>
           </View>
