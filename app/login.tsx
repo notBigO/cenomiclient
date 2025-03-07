@@ -21,7 +21,6 @@ export default function LoginScreen() {
 
   const handleLogin = () => {
     console.log("Login:", { username, password });
-    // Add authentication logic here
     router.push("/");
   };
 
