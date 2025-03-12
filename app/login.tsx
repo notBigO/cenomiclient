@@ -7,21 +7,45 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Image,
+  ActivityIndicator,
+  Animated,
 } from "react-native";
-import { useState } from "react";
-import { Link, useRouter } from "expo-router";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const passwordRef = useRef(null);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleLogin = () => {
-    console.log("Login:", { username, password });
-    router.push("/");
+    if (!username || !password) {
+      setError("Please enter both username and password");
+      return;
+    }
+
+    setError("");
+    setIsLoading(true);
+
+    setTimeout(() => {
+      setIsLoading(false);
+      console.log("Login:", { username, password });
+      router.push("/");
+    }, 1500);
   };
 
   return (
@@ -31,81 +55,129 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <View className="flex-row items-center justify-between px-4 py-5 border-b border-gray-200">
-          <TouchableOpacity onPress={() => router.back()}>
+        <View className="flex-row items-center justify-between px-5 py-4">
+          <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
             <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">Cenomi AI</Text>
+          <Text className="text-xl font-semibold text-gray-800">Cenomi AI</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <View className="flex-1 justify-center px-8">
+        <Animated.View
+          className="flex-1 justify-center px-8"
+          style={{ opacity: fadeAnim }}
+        >
           <View className="items-center mb-10">
-            <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center mb-4">
-              <Ionicons name="person" size={50} color="#777" />
+            <View className="w-20 h-20 rounded-full bg-black items-center justify-center mb-6 shadow-md">
+              <Ionicons name="person" size={40} color="#fff" />
             </View>
-            <Text className="text-2xl font-bold text-gray-800">
-              Tenant Login
-            </Text>
-            <Text className="text-gray-500 mt-2">
-              Sign in to access your account
+            <Text className="text-3xl font-bold text-gray-800">Sign In</Text>
+            <Text className="text-gray-500 mt-2 text-center">
+              Login as a customer or tenant to access your account
             </Text>
           </View>
 
-          <View className="bg-gray-100 rounded-xl p-4 mb-6">
-            <View className="flex-row items-center border-b border-gray-300 pb-2 mb-4">
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color="#777"
-                style={{ marginRight: 10 }}
-              />
-              <TextInput
-                className="flex-1 text-gray-800"
-                placeholder="Username"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
+          <View className="mb-6 space-y-4">
+            <View className="space-y-2">
+              <Text className="text-gray-600 text-sm font-medium ml-1">
+                Username / Email
+              </Text>
+              <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color="#777"
+                  style={{ marginRight: 10 }}
+                />
+                <TextInput
+                  className="flex-1 text-gray-800"
+                  placeholder="Enter username or email"
+                  value={username}
+                  onChangeText={(text) => {
+                    setUsername(text);
+                    setError("");
+                  }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  //@ts-ignore
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+              </View>
             </View>
 
-            <View className="flex-row items-center">
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color="#777"
-                style={{ marginRight: 10 }}
-              />
-              <TextInput
-                className="flex-1 text-gray-800"
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <View className="space-y-2">
+              <Text className="text-gray-600 text-sm font-medium ml-1">
+                Password
+              </Text>
+              <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
                 <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={20}
+                  name="lock-closed-outline"
+                  size={18}
                   color="#777"
+                  style={{ marginRight: 10 }}
                 />
-              </TouchableOpacity>
+                <TextInput
+                  ref={passwordRef}
+                  className="flex-1 text-gray-800"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError("");
+                  }}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  className="p-1"
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#777"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {error ? (
+              <Text className="text-red-500 text-sm ml-1">{error}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              className="self-end"
+              onPress={() => console.log("Forgot password")}
+            >
+              <Text className="text-gray-600 text-sm">Forgot Password?</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
             onPress={handleLogin}
-            className="bg-black py-3 rounded-xl items-center"
-            disabled={!username || !password}
+            className={`${
+              !username || !password ? "bg-gray-300" : "bg-black"
+            } py-4 rounded-xl items-center shadow-sm mt-2`}
+            disabled={!username || !password || isLoading}
           >
-            <Text className="text-white font-semibold text-lg">Login</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="text-white font-semibold text-lg">Sign In</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity className="mt-4 items-center">
-            <Text className="text-black">Forgot Password?</Text>
-          </TouchableOpacity>
-        </View>
+          <View className="mt-8 items-center">
+            <Text className="text-gray-500">
+              Don't have an account?{" "}
+              <Text className="text-black font-semibold">Register Now</Text>
+            </Text>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
