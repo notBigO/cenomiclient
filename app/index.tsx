@@ -36,7 +36,7 @@ export default function HomeScreen() {
     }).start();
   }, []);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (message.trim() === "") return;
 
     const userMessage = {
@@ -52,15 +52,26 @@ export default function HomeScreen() {
     setMessage("");
     setIsTyping(true);
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    try {
+      const backendUrl = "http://192.168.1.17:8000/chat";
+      const response = await fetch(backendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: userMessage.text }),
+      });
+      console.log("response: ", response);
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
 
-    setTimeout(() => {
-      setIsTyping(false);
+      const data = await response.json();
+      console.log("Data: ", data);
+      const parsedResponse = JSON.parse(data.response);
       const botResponse = {
         id: messages.length + 2,
-        text: "I'm still under development, but I'm learning quickly! How else can I assist you today?",
+        text: parsedResponse.message,
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -68,11 +79,24 @@ export default function HomeScreen() {
         }),
       };
       setMessages((prev) => [...prev, botResponse]);
-
+    } catch (error) {
+      console.error("Error:", error);
+      const errorMessage = {
+        id: messages.length + 2,
+        text: "Sorry, something went wrong. Please try again later.",
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
-    }, 2000);
+    }
   };
 
   const quickPrompts = [
