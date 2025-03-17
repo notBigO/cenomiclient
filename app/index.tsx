@@ -14,6 +14,7 @@ import {
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
@@ -24,6 +25,7 @@ export default function HomeScreen() {
     { id: 2, text: "How can I help you today?", isUser: false },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [language, setLanguage] = useState("en");
   const scrollViewRef = useRef();
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -34,7 +36,19 @@ export default function HomeScreen() {
       duration: 600,
       useNativeDriver: true,
     }).start();
+    loadUserLanguage();
   }, []);
+
+  const loadUserLanguage = async () => {
+    const storedLang = await AsyncStorage.getItem("language");
+    if (storedLang) setLanguage(storedLang);
+  };
+
+  const toggleLanguage = async () => {
+    const newLang = language === "en" ? "ar" : "en";
+    setLanguage(newLang);
+    await AsyncStorage.setItem("language", newLang);
+  };
 
   const handleSend = async () => {
     if (message.trim() === "") return;
@@ -54,24 +68,30 @@ export default function HomeScreen() {
 
     try {
       const backendUrl = "http://192.168.1.17:8000/chat";
+      const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
+
       const response = await fetch(backendUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text: userMessage.text }),
+        body: JSON.stringify({
+          text: userMessage.text,
+          user_id: userId,
+          language: language,
+        }),
       });
-      console.log("response: ", response);
+
       if (!response.ok) {
-        throw new Error("Network response was not ok");
+        throw new Error(`Network response was not ok: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Data: ", data);
-      const parsedResponse = JSON.parse(data.response);
+      console.log("Backend response:", data); // Log the raw response for debugging
+
       const botResponse = {
         id: messages.length + 2,
-        text: parsedResponse.message,
+        text: data.message, // Directly use data.message, no need for JSON.parse
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -99,12 +119,20 @@ export default function HomeScreen() {
     }
   };
 
-  const quickPrompts = [
-    "Where is Trendy Threads?",
-    "What offers are available?",
-    "Check my loyalty points",
-    "Update store hours",
-  ];
+  const quickPrompts = {
+    en: [
+      "Where is Trendy Threads?",
+      "What offers are available?",
+      "Check my loyalty points",
+      "Update store hours",
+    ],
+    ar: [
+      "أين تقع تريندي ثريدز؟",
+      "ما هي العروض المتوفرة؟",
+      "تحقق من نقاط ولائي",
+      "تحديث ساعات عمل المتجر",
+    ],
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -119,14 +147,25 @@ export default function HomeScreen() {
               <View className="w-8 h-8 rounded-full bg-black items-center justify-center mr-2">
                 <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
               </View>
-              <Text className="text-xl font-bold text-gray-800">Cenomi AI</Text>
+              <Text className="text-xl font-bold text-gray-800">
+                {language === "en" ? "Cenomi AI" : "سينومي AI"}
+              </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => router.push("/login")}
-              className="px-4 py-2 bg-gray-100 rounded-full"
-            >
-              <Text className="font-medium">Login</Text>
-            </TouchableOpacity>
+            <View className="flex-row items-center">
+              <TouchableOpacity onPress={toggleLanguage} className="mr-4">
+                <Text className="text-gray-600 font-medium">
+                  {language === "en" ? "عربي" : "English"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/login")}
+                className="px-4 py-2 bg-gray-100 rounded-full"
+              >
+                <Text className="font-medium">
+                  {language === "en" ? "Login" : "تسجيل الدخول"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -140,16 +179,14 @@ export default function HomeScreen() {
             {messages.length === 2 && (
               <View className="mt-2 mb-6">
                 <Text className="text-gray-500 mb-3 ml-1">
-                  Try asking about:
+                  {language === "en" ? "Try asking about:" : "جرب السؤال عن:"}
                 </Text>
                 <View className="flex-row flex-wrap">
-                  {quickPrompts.map((prompt, index) => (
+                  {quickPrompts[language].map((prompt, index) => (
                     <TouchableOpacity
                       key={index}
                       className="bg-gray-100 rounded-full px-4 py-2 mr-2 mb-2"
-                      onPress={() => {
-                        setMessage(prompt);
-                      }}
+                      onPress={() => setMessage(prompt)}
                     >
                       <Text className="text-gray-800">{prompt}</Text>
                     </TouchableOpacity>
@@ -175,6 +212,7 @@ export default function HomeScreen() {
                 >
                   <Text
                     className={`${msg.isUser ? "text-white" : "text-gray-800"}`}
+                    style={{ textAlign: language === "ar" ? "right" : "left" }}
                   >
                     {msg.text}
                   </Text>
@@ -193,7 +231,9 @@ export default function HomeScreen() {
                 style={{ maxWidth: width * 0.8 }}
               >
                 <View className="rounded-2xl px-4 py-3 bg-gray-100 rounded-tl-none flex-row">
-                  <Text className="text-gray-800 mr-1">Typing</Text>
+                  <Text className="text-gray-800 mr-1">
+                    {language === "en" ? "Typing" : "يكتب"}
+                  </Text>
                   <View className="flex-row items-center">
                     <View className="w-1.5 h-1.5 bg-gray-400 rounded-full mx-0.5 animate-bounce"></View>
                     <View
@@ -214,14 +254,21 @@ export default function HomeScreen() {
             <View className="flex-row items-center bg-gray-100 rounded-full overflow-hidden">
               <TextInput
                 className="flex-1 py-3 px-4 text-gray-800"
-                placeholder="Message Cenomi AI..."
+                placeholder={
+                  language === "en"
+                    ? "Message Cenomi AI..."
+                    : "راسل سينومي AI..."
+                }
                 value={message}
                 onChangeText={setMessage}
                 onSubmitEditing={handleSend}
                 returnKeyType="send"
                 multiline
                 maxHeight={100}
-                style={{ maxHeight: 100 }}
+                style={{
+                  maxHeight: 100,
+                  textAlign: language === "ar" ? "right" : "left",
+                }}
               />
               <TouchableOpacity
                 onPress={handleSend}
@@ -234,7 +281,9 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <Text className="text-xs text-gray-400 text-center mt-2">
-              Cenomi AI assists customers and tenants with inquiries and updates
+              {language === "en"
+                ? "Cenomi AI assists customers and tenants with inquiries and updates"
+                : "سينومي AI يساعد العملاء وأصحاب المتاجر في الاستفسارات والتحديثات"}
             </Text>
           </View>
         </Animated.View>
