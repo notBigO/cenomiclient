@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,9 +11,10 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
-import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
@@ -32,7 +34,7 @@ export default function LoginScreen() {
     }).start();
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!username || !password) {
       setError("Please enter both username and password");
       return;
@@ -41,11 +43,21 @@ export default function LoginScreen() {
     setError("");
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log("Login:", { username, password });
+    try {
+      const response = await axios.post("http://172.20.10.10:8000/login", {
+        email: username,
+        password,
+      });
+      const { user_id, role, store_id } = response.data;
+      await AsyncStorage.setItem("user_id", user_id);
+      await AsyncStorage.setItem("role", role);
+      if (store_id) await AsyncStorage.setItem("store_id", store_id.toString());
       router.push("/");
-    }, 1500);
+    } catch (error) {
+      setError("Invalid credentials");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -100,7 +112,6 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   returnKeyType="next"
-                  //@ts-ignore
                   onSubmitEditing={() => passwordRef.current?.focus()}
                   blurOnSubmit={false}
                 />

@@ -67,7 +67,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.1.17:8000/chat";
+      const backendUrl = "http://172.20.10.10:8000/chat";
       const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
 
       const response = await fetch(backendUrl, {
