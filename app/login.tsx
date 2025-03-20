@@ -24,7 +24,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const passwordRef = useRef(null);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -44,17 +44,19 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
+      console.log("handling login");
       const response = await axios.post("http://172.20.10.10:8000/login", {
         email: username,
         password,
       });
-      const { user_id, role, store_id } = response.data;
-      await AsyncStorage.setItem("user_id", user_id);
+      console.log("Response: ", response);
+      const { user_id, role } = response.data;
+      await AsyncStorage.setItem("user_id", user_id.toString());
       await AsyncStorage.setItem("role", role);
-      if (store_id) await AsyncStorage.setItem("store_id", store_id.toString());
+
       router.push("/");
     } catch (error) {
-      setError("Invalid credentials");
+      setError(`Invalid credentials: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -161,8 +163,8 @@ export default function LoginScreen() {
             ) : null}
 
             <TouchableOpacity
-              className="self-end"
               onPress={() => console.log("Forgot password")}
+              className="self-end"
             >
               <Text className="text-gray-600 text-sm">Forgot Password?</Text>
             </TouchableOpacity>

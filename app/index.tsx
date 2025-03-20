@@ -26,7 +26,10 @@ export default function HomeScreen() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [language, setLanguage] = useState("en");
-  const scrollViewRef = useRef();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"chat" | "update">("chat");
+  const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -36,22 +39,38 @@ export default function HomeScreen() {
       duration: 600,
       useNativeDriver: true,
     }).start();
-    loadUserLanguage();
+    console.log("Home screen mounted");
+    loadUserData();
   }, []);
 
-  const loadUserLanguage = async () => {
+  const loadUserData = async () => {
     const storedLang = await AsyncStorage.getItem("language");
+    const storedRole = await AsyncStorage.getItem("role");
+    const storedSessionId = await AsyncStorage.getItem("session_id");
+    const storedUserId = await AsyncStorage.getItem("user_id");
+    console.log("Loaded user data:", {
+      storedLang,
+      storedRole,
+      storedSessionId,
+      storedUserId,
+    });
     if (storedLang) setLanguage(storedLang);
+    if (storedRole) setRole(storedRole);
+    if (storedSessionId) setSessionId(storedSessionId);
   };
 
   const toggleLanguage = async () => {
     const newLang = language === "en" ? "ar" : "en";
+    console.log("Toggling language to:", newLang);
     setLanguage(newLang);
     await AsyncStorage.setItem("language", newLang);
   };
 
   const handleSend = async () => {
-    if (message.trim() === "") return;
+    if (message.trim() === "") {
+      console.log("Empty message, aborting send");
+      return;
+    }
 
     const userMessage = {
       id: messages.length + 1,
@@ -62,36 +81,54 @@ export default function HomeScreen() {
         minute: "2-digit",
       }),
     };
+    console.log("Sending user message:", userMessage);
     setMessages([...messages, userMessage]);
     setMessage("");
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://172.20.10.10:8000/chat";
-      const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
+      const backendUrl =
+        activeTab === "chat"
+          ? "http://172.20.10.10:8000/chat"
+          : "http://172.20.10.10:8000/tenant/update";
+      const userId = await AsyncStorage.getItem("user_id");
+      console.log("Retrieved user_id from AsyncStorage:", userId);
+
+      const requestBody = {
+        text: userMessage.text,
+        user_id: userId || undefined, // Ensure null becomes undefined for optional field
+        session_id: sessionId,
+        language: language,
+      };
+      console.log("Sending request to:", backendUrl);
+      console.log("Request body:", requestBody);
 
       const response = await fetch(backendUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          text: userMessage.text,
-          user_id: userId,
-          language: language,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error(`Network response was not ok: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Response not OK:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(
+          `Network response was not ok: ${response.status} - ${errorText}`
+        );
       }
 
       const data = await response.json();
-      console.log("Backend response:", data); // Log the raw response for debugging
+      console.log("Backend response:", data);
 
       const botResponse = {
         id: messages.length + 2,
-        text: data.message, // Directly use data.message, no need for JSON.parse
+        text: data.message,
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -99,8 +136,14 @@ export default function HomeScreen() {
         }),
       };
       setMessages((prev) => [...prev, botResponse]);
-    } catch (error) {
-      console.error("Error:", error);
+      setSessionId(data.session_id);
+      await AsyncStorage.setItem("session_id", data.session_id);
+      console.log("Updated session ID:", data.session_id);
+    } catch (error: any) {
+      console.error("Fetch error:", {
+        message: error.message,
+        stack: error.stack,
+      });
       const errorMessage = {
         id: messages.length + 2,
         text: "Sorry, something went wrong. Please try again later.",
@@ -119,19 +162,60 @@ export default function HomeScreen() {
     }
   };
 
+  const clearChat = async () => {
+    const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
+    console.log("Clearing chat for user:", userId, "session:", sessionId);
+    try {
+      const response = await fetch("http://localhost:8000/clear_session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, session_id: sessionId }),
+      });
+      console.log("Clear chat response:", await response.json());
+    } catch (error) {
+      console.error("Clear chat error:", error);
+    }
+    setMessages([
+      { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
+      { id: 2, text: "How can I help you today?", isUser: false },
+    ]);
+  };
+
+  const newSession = async () => {
+    console.log("Starting new session");
+    setSessionId(null);
+    await AsyncStorage.removeItem("session_id");
+    setMessages([
+      { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
+      { id: 2, text: "How can I help you today?", isUser: false },
+    ]);
+  };
+
   const quickPrompts = {
-    en: [
-      "Where is Trendy Threads?",
-      "What offers are available?",
-      "Check my loyalty points",
-      "Update store hours",
-    ],
-    ar: [
-      "أين تقع تريندي ثريدز؟",
-      "ما هي العروض المتوفرة؟",
-      "تحقق من نقاط ولائي",
-      "تحديث ساعات عمل المتجر",
-    ],
+    en: {
+      chat: [
+        "Where is Trendy Threads?",
+        "What offers are available?",
+        "Check my loyalty points",
+      ],
+      update: [
+        "Add 20% off on shoes",
+        "Update store location to Level 2",
+        "Show my store details",
+      ],
+    },
+    ar: {
+      chat: [
+        "أين تقع تريندي ثريدز؟",
+        "ما هي العروض المتوفرة؟",
+        "تحقق من نقاط ولائي",
+      ],
+      update: [
+        "أضف خصم 20% على الأحذية",
+        "تحديث موقع المتجر إلى الطابق الثاني",
+        "عرض تفاصيل متجري",
+      ],
+    },
   };
 
   return (
@@ -158,15 +242,66 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.push("/login")}
+                onPress={async () => {
+                  console.log("Logging out");
+                  await AsyncStorage.clear();
+                  setRole(null);
+                  setSessionId(null);
+                  router.push("/login");
+                }}
                 className="px-4 py-2 bg-gray-100 rounded-full"
               >
                 <Text className="font-medium">
-                  {language === "en" ? "Login" : "تسجيل الدخول"}
+                  {language === "en"
+                    ? role
+                      ? "Logout"
+                      : "Login"
+                    : role
+                    ? "تسجيل الخروج"
+                    : "تسجيل الدخول"}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {role === "tenant" && (
+            <View className="flex-row justify-around py-2 bg-gray-50 border-b border-gray-100">
+              <TouchableOpacity
+                onPress={() => {
+                  console.log("Switching to chat tab");
+                  setActiveTab("chat");
+                }}
+                className={`flex-1 py-2 ${
+                  activeTab === "chat" ? "bg-black" : "bg-gray-200"
+                } rounded-l-full`}
+              >
+                <Text
+                  className={`text-center font-medium ${
+                    activeTab === "chat" ? "text-white" : "text-gray-800"
+                  }`}
+                >
+                  {language === "en" ? "Chat" : "دردشة"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  console.log("Switching to update tab");
+                  setActiveTab("update");
+                }}
+                className={`flex-1 py-2 ${
+                  activeTab === "update" ? "bg-black" : "bg-gray-200"
+                } rounded-r-full`}
+              >
+                <Text
+                  className={`text-center font-medium ${
+                    activeTab === "update" ? "text-white" : "text-gray-800"
+                  }`}
+                >
+                  {language === "en" ? "Update" : "تحديث"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <ScrollView
             ref={scrollViewRef}
@@ -182,11 +317,14 @@ export default function HomeScreen() {
                   {language === "en" ? "Try asking about:" : "جرب السؤال عن:"}
                 </Text>
                 <View className="flex-row flex-wrap">
-                  {quickPrompts[language].map((prompt, index) => (
+                  {quickPrompts[language][activeTab].map((prompt, index) => (
                     <TouchableOpacity
                       key={index}
                       className="bg-gray-100 rounded-full px-4 py-2 mr-2 mb-2"
-                      onPress={() => setMessage(prompt)}
+                      onPress={() => {
+                        console.log("Quick prompt selected:", prompt);
+                        setMessage(prompt);
+                      }}
                     >
                       <Text className="text-gray-800">{prompt}</Text>
                     </TouchableOpacity>
@@ -207,6 +345,12 @@ export default function HomeScreen() {
                   className={`rounded-2xl px-4 py-3 ${
                     msg.isUser
                       ? "bg-black rounded-tr-none"
+                      : msg.text.includes("Only tenants") ||
+                        msg.text.includes("own store") ||
+                        msg.text.includes("Customers cannot") ||
+                        msg.text.includes("Unauthorized") ||
+                        msg.text.includes("No store associated")
+                      ? "bg-red-100 rounded-tl-none"
                       : "bg-gray-100 rounded-tl-none"
                   }`}
                 >
@@ -256,11 +400,17 @@ export default function HomeScreen() {
                 className="flex-1 py-3 px-4 text-gray-800"
                 placeholder={
                   language === "en"
-                    ? "Message Cenomi AI..."
-                    : "راسل سينومي AI..."
+                    ? activeTab === "chat"
+                      ? "Message Cenomi AI..."
+                      : "Update your store..."
+                    : activeTab === "chat"
+                    ? "راسل سينومي AI..."
+                    : "حدث متجرك..."
                 }
                 value={message}
-                onChangeText={setMessage}
+                onChangeText={(text) => {
+                  setMessage(text);
+                }}
                 onSubmitEditing={handleSend}
                 returnKeyType="send"
                 multiline
@@ -278,6 +428,24 @@ export default function HomeScreen() {
                 disabled={!message.trim() || isTyping}
               >
                 <Ionicons name="paper-plane-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-row justify-between mt-2">
+              <TouchableOpacity
+                onPress={clearChat}
+                className="px-4 py-1 bg-gray-200 rounded-full"
+              >
+                <Text className="text-gray-800">
+                  {language === "en" ? "Clear Chat" : "مسح الدردشة"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={newSession}
+                className="px-4 py-1 bg-gray-200 rounded-full"
+              >
+                <Text className="text-gray-800">
+                  {language === "en" ? "New Session" : "جلسة جديدة"}
+                </Text>
               </TouchableOpacity>
             </View>
             <Text className="text-xs text-gray-400 text-center mt-2">
