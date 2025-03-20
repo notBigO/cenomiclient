@@ -89,8 +89,8 @@ export default function HomeScreen() {
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://172.20.10.10:8000/chat"
-          : "http://172.20.10.10:8000/tenant/update";
+          ? "http://192.168.0.39:8000/chat"
+          : "http://192.168.0.39:8000/tenant/update";
       const userId = await AsyncStorage.getItem("user_id");
       console.log("Retrieved user_id from AsyncStorage:", userId);
 

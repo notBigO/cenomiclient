@@ -45,7 +45,7 @@ export default function LoginScreen() {
 
     try {
       console.log("handling login");
-      const response = await axios.post("http://172.20.10.10:8000/login", {
+      const response = await axios.post("http://192.168.0.39:8000/login", {
         email: username,
         password,
       });
