@@ -27,7 +27,8 @@ export default function HomeScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [language, setLanguage] = useState("en");
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isTenant, setIsTenant] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "update">("chat");
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
@@ -39,38 +40,29 @@ export default function HomeScreen() {
       duration: 600,
       useNativeDriver: true,
     }).start();
-    console.log("Home screen mounted");
     loadUserData();
   }, []);
 
   const loadUserData = async () => {
     const storedLang = await AsyncStorage.getItem("language");
-    const storedRole = await AsyncStorage.getItem("role");
     const storedSessionId = await AsyncStorage.getItem("session_id");
     const storedUserId = await AsyncStorage.getItem("user_id");
-    console.log("Loaded user data:", {
-      storedLang,
-      storedRole,
-      storedSessionId,
-      storedUserId,
-    });
     if (storedLang) setLanguage(storedLang);
-    if (storedRole) setRole(storedRole);
     if (storedSessionId) setSessionId(storedSessionId);
+    if (storedUserId) {
+      setUserId(storedUserId);
+      setIsTenant(storedUserId.startsWith("t_"));
+    }
   };
 
   const toggleLanguage = async () => {
     const newLang = language === "en" ? "ar" : "en";
-    console.log("Toggling language to:", newLang);
     setLanguage(newLang);
     await AsyncStorage.setItem("language", newLang);
   };
 
   const handleSend = async () => {
-    if (message.trim() === "") {
-      console.log("Empty message, aborting send");
-      return;
-    }
+    if (message.trim() === "") return;
 
     const userMessage = {
       id: messages.length + 1,
@@ -81,7 +73,6 @@ export default function HomeScreen() {
         minute: "2-digit",
       }),
     };
-    console.log("Sending user message:", userMessage);
     setMessages([...messages, userMessage]);
     setMessage("");
     setIsTyping(true);
@@ -89,43 +80,27 @@ export default function HomeScreen() {
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://192.168.0.39:8000/chat"
-          : "http://192.168.0.39:8000/tenant/update";
-      const userId = await AsyncStorage.getItem("user_id");
-      console.log("Retrieved user_id from AsyncStorage:", userId);
-
+          ? "http://192.168.1.26:8000/chat"
+          : "http://192.168.1.26:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
-        user_id: userId || undefined, // Ensure null becomes undefined for optional field
+        user_id: userId || undefined,
         session_id: sessionId,
         language: language,
       };
-      console.log("Sending request to:", backendUrl);
-      console.log("Request body:", requestBody);
 
       const response = await fetch(backendUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Response not OK:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-        });
-        throw new Error(
-          `Network response was not ok: ${response.status} - ${errorText}`
-        );
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Network response was not ok");
       }
 
       const data = await response.json();
-      console.log("Backend response:", data);
-
       const botResponse = {
         id: messages.length + 2,
         text: data.message,
@@ -138,15 +113,13 @@ export default function HomeScreen() {
       setMessages((prev) => [...prev, botResponse]);
       setSessionId(data.session_id);
       await AsyncStorage.setItem("session_id", data.session_id);
-      console.log("Updated session ID:", data.session_id);
-    } catch (error: any) {
-      console.error("Fetch error:", {
-        message: error.message,
-        stack: error.stack,
-      });
+    } catch (error) {
       const errorMessage = {
         id: messages.length + 2,
-        text: "Sorry, something went wrong. Please try again later.",
+        text:
+          error.message === "Only tenants can perform updates"
+            ? "Sorry, only store owners can update details. Want to explore the mall instead?"
+            : "Sorry, something went wrong. Please try again later.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -156,25 +129,14 @@ export default function HomeScreen() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
     }
   };
 
   const clearChat = async () => {
-    const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
-    console.log("Clearing chat for user:", userId, "session:", sessionId);
-    try {
-      const response = await fetch("http://localhost:8000/clear_session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, session_id: sessionId }),
-      });
-      console.log("Clear chat response:", await response.json());
-    } catch (error) {
-      console.error("Clear chat error:", error);
-    }
     setMessages([
       { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
       { id: 2, text: "How can I help you today?", isUser: false },
@@ -182,7 +144,6 @@ export default function HomeScreen() {
   };
 
   const newSession = async () => {
-    console.log("Starting new session");
     setSessionId(null);
     await AsyncStorage.removeItem("session_id");
     setMessages([
@@ -243,9 +204,9 @@ export default function HomeScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={async () => {
-                  console.log("Logging out");
                   await AsyncStorage.clear();
-                  setRole(null);
+                  setUserId(null);
+                  setIsTenant(false);
                   setSessionId(null);
                   router.push("/login");
                 }}
@@ -253,10 +214,10 @@ export default function HomeScreen() {
               >
                 <Text className="font-medium">
                   {language === "en"
-                    ? role
+                    ? userId
                       ? "Logout"
                       : "Login"
-                    : role
+                    : userId
                     ? "تسجيل الخروج"
                     : "تسجيل الدخول"}
                 </Text>
@@ -264,13 +225,10 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {role === "tenant" && (
+          {isTenant && (
             <View className="flex-row justify-around py-2 bg-gray-50 border-b border-gray-100">
               <TouchableOpacity
-                onPress={() => {
-                  console.log("Switching to chat tab");
-                  setActiveTab("chat");
-                }}
+                onPress={() => setActiveTab("chat")}
                 className={`flex-1 py-2 ${
                   activeTab === "chat" ? "bg-black" : "bg-gray-200"
                 } rounded-l-full`}
@@ -284,10 +242,7 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => {
-                  console.log("Switching to update tab");
-                  setActiveTab("update");
-                }}
+                onPress={() => setActiveTab("update")}
                 className={`flex-1 py-2 ${
                   activeTab === "update" ? "bg-black" : "bg-gray-200"
                 } rounded-r-full`}
@@ -321,10 +276,7 @@ export default function HomeScreen() {
                     <TouchableOpacity
                       key={index}
                       className="bg-gray-100 rounded-full px-4 py-2 mr-2 mb-2"
-                      onPress={() => {
-                        console.log("Quick prompt selected:", prompt);
-                        setMessage(prompt);
-                      }}
+                      onPress={() => setMessage(prompt)}
                     >
                       <Text className="text-gray-800">{prompt}</Text>
                     </TouchableOpacity>
@@ -345,11 +297,8 @@ export default function HomeScreen() {
                   className={`rounded-2xl px-4 py-3 ${
                     msg.isUser
                       ? "bg-black rounded-tr-none"
-                      : msg.text.includes("Only tenants") ||
-                        msg.text.includes("own store") ||
-                        msg.text.includes("Customers cannot") ||
-                        msg.text.includes("Unauthorized") ||
-                        msg.text.includes("No store associated")
+                      : msg.text.includes("only store owners") ||
+                        msg.text.includes("Invalid tenant")
                       ? "bg-red-100 rounded-tl-none"
                       : "bg-gray-100 rounded-tl-none"
                   }`}
@@ -408,9 +357,7 @@ export default function HomeScreen() {
                     : "حدث متجرك..."
                 }
                 value={message}
-                onChangeText={(text) => {
-                  setMessage(text);
-                }}
+                onChangeText={setMessage}
                 onSubmitEditing={handleSend}
                 returnKeyType="send"
                 multiline
@@ -450,8 +397,8 @@ export default function HomeScreen() {
             </View>
             <Text className="text-xs text-gray-400 text-center mt-2">
               {language === "en"
-                ? "Cenomi AI assists customers and tenants with inquiries and updates"
-                : "سينومي AI يساعد العملاء وأصحاب المتاجر في الاستفسارات والتحديثات"}
+                ? "Cenomi AI assists with inquiries and updates"
+                : "سينومي AI يساعد في الاستفسارات والتحديثات"}
             </Text>
           </View>
         </Animated.View>

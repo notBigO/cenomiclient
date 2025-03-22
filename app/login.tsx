@@ -17,7 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +35,8 @@ export default function LoginScreen() {
   }, []);
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      setError("Please enter both username and password");
+    if (!email || !password) {
+      setError("Please enter both email and password");
       return;
     }
 
@@ -44,19 +44,15 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      console.log("handling login");
-      const response = await axios.post("http://192.168.0.39:8000/login", {
-        email: username,
+      const response = await axios.post("http://192.168.1.26:8000/login", {
+        email,
         password,
       });
-      console.log("Response: ", response);
-      const { user_id, role } = response.data;
-      await AsyncStorage.setItem("user_id", user_id.toString());
-      await AsyncStorage.setItem("role", role);
-
+      const { user_id } = response.data;
+      await AsyncStorage.setItem("user_id", user_id);
       router.push("/");
     } catch (error) {
-      setError(`Invalid credentials: ${error}`);
+      setError("Invalid credentials");
     } finally {
       setIsLoading(false);
     }
@@ -87,14 +83,14 @@ export default function LoginScreen() {
             </View>
             <Text className="text-3xl font-bold text-gray-800">Sign In</Text>
             <Text className="text-gray-500 mt-2 text-center">
-              Login as a customer or tenant to access your account
+              Login to access your Cenomi AI account
             </Text>
           </View>
 
           <View className="mb-6 space-y-4">
             <View className="space-y-2">
               <Text className="text-gray-600 text-sm font-medium ml-1">
-                Username / Email
+                Email
               </Text>
               <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
                 <Ionicons
@@ -105,10 +101,10 @@ export default function LoginScreen() {
                 />
                 <TextInput
                   className="flex-1 text-gray-800"
-                  placeholder="Enter username or email"
-                  value={username}
+                  placeholder="Enter your email"
+                  value={email}
                   onChangeText={(text) => {
-                    setUsername(text);
+                    setEmail(text);
                     setError("");
                   }}
                   autoCapitalize="none"
@@ -173,9 +169,9 @@ export default function LoginScreen() {
           <TouchableOpacity
             onPress={handleLogin}
             className={`${
-              !username || !password ? "bg-gray-300" : "bg-black"
+              !email || !password ? "bg-gray-300" : "bg-black"
             } py-4 rounded-xl items-center shadow-sm mt-2`}
-            disabled={!username || !password || isLoading}
+            disabled={!email || !password || isLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
