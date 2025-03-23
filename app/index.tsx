@@ -80,8 +80,8 @@ export default function HomeScreen() {
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://192.168.1.26:8000/chat"
-          : "http://192.168.1.26:8000/tenant/update";
+          ? "http://192.168.1.17:8000/chat"
+          : "http://192.168.1.17:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
         user_id: userId || undefined,
