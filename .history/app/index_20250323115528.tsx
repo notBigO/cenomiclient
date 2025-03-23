@@ -78,8 +78,7 @@ export default function HomeScreen() {
         body: JSON.stringify({
           user_query: userMessage.text,
           role: "CUSTOMER",
-          session_id: "25198",
-          mall_name: "Nakheel Mall"
+          session_id: "25197"
         }),
       });
 

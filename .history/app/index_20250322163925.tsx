@@ -67,7 +67,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.1.5:8000/chat";
+      const backendUrl = "http://192.168.1.10:8000/chat";
       const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
 
       const response = await fetch(backendUrl, {
@@ -76,10 +76,9 @@ export default function HomeScreen() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          user_query: userMessage.text,
-          role: "CUSTOMER",
-          session_id: "25198",
-          mall_name: "Nakheel Mall"
+          text: userMessage.text,
+          user_id: userId,
+          language: language,
         }),
       });
 
@@ -92,7 +91,7 @@ export default function HomeScreen() {
 
       const botResponse = {
         id: messages.length + 2,
-        text: data.response, // Directly use data.message, no need for JSON.parse
+        text: data.message, // Directly use data.message, no need for JSON.parse
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",

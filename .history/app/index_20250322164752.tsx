@@ -67,7 +67,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.1.5:8000/chat";
+      const backendUrl = "http://192.168.1.10:8000/chat";
       const userId = (await AsyncStorage.getItem("user_id")) || "default_user";
 
       const response = await fetch(backendUrl, {
@@ -78,8 +78,7 @@ export default function HomeScreen() {
         body: JSON.stringify({
           user_query: userMessage.text,
           role: "CUSTOMER",
-          session_id: "25198",
-          mall_name: "Nakheel Mall"
+          session_id: "25192"
         }),
       });
 
