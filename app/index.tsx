@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,6 +31,10 @@ export default function HomeScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isTenant, setIsTenant] = useState(false);
   const [activeTab, setActiveTab] = useState<"chat" | "update">("chat");
+  const [malls, setMalls] = useState<{ mall_id: string; name_en: string }[]>(
+    []
+  ); // State for malls
+  const [selectedMall, setSelectedMall] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -41,18 +46,41 @@ export default function HomeScreen() {
       useNativeDriver: true,
     }).start();
     loadUserData();
+    fetchMalls(); // Fetch malls on mount
   }, []);
 
   const loadUserData = async () => {
     const storedLang = await AsyncStorage.getItem("language");
     const storedSessionId = await AsyncStorage.getItem("session_id");
     const storedUserId = await AsyncStorage.getItem("user_id");
+    const storedMallId = await AsyncStorage.getItem("selected_mall_id"); // Load persisted mall
     if (storedLang) setLanguage(storedLang);
     if (storedSessionId) setSessionId(storedSessionId);
     if (storedUserId) {
       setUserId(storedUserId);
       setIsTenant(storedUserId.startsWith("t_"));
     }
+    if (storedMallId) setSelectedMall(storedMallId);
+  };
+
+  const fetchMalls = async () => {
+    try {
+      const response = await fetch("http://192.168.1.17:8000/malls");
+      const data = await response.json();
+      setMalls(data);
+      if (data.length > 0 && !selectedMall) {
+        setSelectedMall(data[0].mall_id); // Default to first mall if none selected
+        await AsyncStorage.setItem("selected_mall_id", data[0].mall_id); // Persist default
+      }
+    } catch (error) {
+      console.error("Error fetching malls:", error);
+    }
+  };
+
+  const handleMallChange = async (mallId: string) => {
+    setSelectedMall(mallId);
+    await AsyncStorage.setItem("selected_mall_id", mallId); // Persist selection
+    clearChat(); // Optional: Clear chat when mall changes
   };
 
   const toggleLanguage = async () => {
@@ -62,7 +90,7 @@ export default function HomeScreen() {
   };
 
   const handleSend = async () => {
-    if (message.trim() === "") return;
+    if (message.trim() === "" || !selectedMall) return; // Ensure a mall is selected
 
     const userMessage = {
       id: messages.length + 1,
@@ -87,6 +115,7 @@ export default function HomeScreen() {
         user_id: userId || undefined,
         session_id: sessionId,
         language: language,
+        mall_id: parseInt(selectedMall),
       };
 
       const response = await fetch(backendUrl, {
@@ -146,10 +175,7 @@ export default function HomeScreen() {
   const newSession = async () => {
     setSessionId(null);
     await AsyncStorage.removeItem("session_id");
-    setMessages([
-      { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
-      { id: 2, text: "How can I help you today?", isUser: false },
-    ]);
+    clearChat();
   };
 
   const quickPrompts = {
@@ -208,6 +234,7 @@ export default function HomeScreen() {
                   setUserId(null);
                   setIsTenant(false);
                   setSessionId(null);
+                  setSelectedMall(null);
                   router.push("/login");
                 }}
                 className="px-4 py-2 bg-gray-100 rounded-full"
@@ -223,6 +250,26 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Mall Selection Dropdown */}
+          <View className="px-5 py-2">
+            <Text className="text-gray-600 font-medium mb-1">
+              {language === "en" ? "Select Mall" : "اختر المول"}
+            </Text>
+            <Picker
+              selectedValue={selectedMall}
+              onValueChange={handleMallChange}
+              style={{ height: 50, width: "100%" }}
+            >
+              {malls.map((mall) => (
+                <Picker.Item
+                  key={mall.mall_id}
+                  label={mall.name_en}
+                  value={mall.mall_id}
+                />
+              ))}
+            </Picker>
           </View>
 
           {isTenant && (
@@ -370,9 +417,9 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={handleSend}
                 className={`${
-                  message.trim() ? "bg-black" : "bg-gray-300"
+                  message.trim() && selectedMall ? "bg-black" : "bg-gray-300"
                 } rounded-full p-2.5 mx-1.5`}
-                disabled={!message.trim() || isTyping}
+                disabled={!message.trim() || !selectedMall || isTyping}
               >
                 <Ionicons name="paper-plane-outline" size={20} color="#fff" />
               </TouchableOpacity>
