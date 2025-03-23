@@ -19,6 +19,96 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
+// Markdown renderer component
+const MarkdownText = ({ text, style }) => {
+  // Parse the text for markdown formatting
+  const parts = [];
+  let lastIndex = 0;
+  let key = 0;
+
+  // Find all bold text (**text**)
+  const boldRegex = /\*\*(.*?)\*\*/g;
+  let boldMatch;
+  while ((boldMatch = boldRegex.exec(text)) !== null) {
+    // Add text before the match
+    if (boldMatch.index > lastIndex) {
+      parts.push(
+        <Text key={key++} style={style}>
+          {text.substring(lastIndex, boldMatch.index)}
+        </Text>
+      );
+    }
+    // Add the bold text
+    parts.push(
+      <Text key={key++} style={[style, { fontWeight: "bold" }]}>
+        {boldMatch[1]}
+      </Text>
+    );
+    lastIndex = boldMatch.index + boldMatch[0].length;
+  }
+
+  // Find all italic text (*text*)
+  let processedText = text;
+  if (parts.length > 0) {
+    processedText = text.substring(lastIndex);
+    lastIndex = 0;
+  }
+
+  const italicRegex = /\*(.*?)\*/g;
+  let italicMatch;
+  const italicParts = [];
+  let italicKey = 0;
+
+  while ((italicMatch = italicRegex.exec(processedText)) !== null) {
+    // Add text before the match
+    if (italicMatch.index > lastIndex) {
+      italicParts.push(
+        <Text key={italicKey++} style={style}>
+          {processedText.substring(lastIndex, italicMatch.index)}
+        </Text>
+      );
+    }
+    // Add the italic text
+    italicParts.push(
+      <Text key={italicKey++} style={[style, { fontStyle: "italic" }]}>
+        {italicMatch[1]}
+      </Text>
+    );
+    lastIndex = italicMatch.index + italicMatch[0].length;
+  }
+
+  // Add any remaining text
+  if (lastIndex < processedText.length) {
+    italicParts.push(
+      <Text key={italicKey++} style={style}>
+        {processedText.substring(lastIndex)}
+      </Text>
+    );
+  }
+
+  // If we processed bold text, we need to insert the italic processing results
+  if (parts.length > 0) {
+    if (italicParts.length > 0) {
+      parts.push(...italicParts);
+    } else {
+      parts.push(
+        <Text key={key++} style={style}>
+          {processedText}
+        </Text>
+      );
+    }
+    return <Text>{parts}</Text>;
+  }
+
+  // If we only processed italic text
+  if (italicParts.length > 0) {
+    return <Text>{italicParts}</Text>;
+  }
+
+  // If no formatting, return the original text
+  return <Text style={style}>{text}</Text>;
+};
+
 export default function HomeScreen() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([
@@ -350,12 +440,25 @@ export default function HomeScreen() {
                       : "bg-gray-100 rounded-tl-none"
                   }`}
                 >
-                  <Text
-                    className={`${msg.isUser ? "text-white" : "text-gray-800"}`}
-                    style={{ textAlign: language === "ar" ? "right" : "left" }}
-                  >
-                    {msg.text}
-                  </Text>
+                  {/* Replace Text with MarkdownText component for bot messages */}
+                  {msg.isUser ? (
+                    <Text
+                      className="text-white"
+                      style={{
+                        textAlign: language === "ar" ? "right" : "left",
+                      }}
+                    >
+                      {msg.text}
+                    </Text>
+                  ) : (
+                    <MarkdownText
+                      text={msg.text}
+                      style={{
+                        color: "rgb(31, 41, 55)",
+                        textAlign: language === "ar" ? "right" : "left",
+                      }}
+                    />
+                  )}
                 </View>
                 {msg.timestamp && (
                   <Text className="text-xs text-gray-400 mt-1 mx-1">
