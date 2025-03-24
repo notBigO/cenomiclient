@@ -5,7 +5,8 @@ import { NavigationContainer } from "@react-navigation/native";
 
 export default function RootLayout() {
   return (
-    <NavigationContainer>
+    <>
+      {/* <NavigationContainer> */}
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -14,6 +15,7 @@ export default function RootLayout() {
           animation: "slide_from_right",
         }}
       />
-    </NavigationContainer>
+      {/* </NavigationContainer> */}
+    </>
   );
 }
