@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
   Dimensions,
+  Image, // Added for logo
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useState, useRef, useEffect } from "react";
@@ -21,24 +22,26 @@ import { MotiView, MotiText } from "moti";
 
 const { width, height } = Dimensions.get("window");
 
-// Markdown renderer component
+// Markdown renderer component with unique keys
 const MarkdownText = ({ text, style }) => {
   const parts = [];
   let lastIndex = 0;
-  let key = 0;
 
   const boldRegex = /\*\*(.*?)\*\*/g;
   let boldMatch;
   while ((boldMatch = boldRegex.exec(text)) !== null) {
     if (boldMatch.index > lastIndex) {
       parts.push(
-        <Text key={key++} style={style}>
+        <Text key={`plain-${boldMatch.index}`} style={style}>
           {text.substring(lastIndex, boldMatch.index)}
         </Text>
       );
     }
     parts.push(
-      <Text key={key++} style={[style, { fontWeight: "bold" }]}>
+      <Text
+        key={`bold-${boldMatch.index}`}
+        style={[style, { fontWeight: "bold" }]}
+      >
         {boldMatch[1]}
       </Text>
     );
@@ -54,18 +57,20 @@ const MarkdownText = ({ text, style }) => {
   const italicRegex = /\*(.*?)\*/g;
   let italicMatch;
   const italicParts = [];
-  let italicKey = 0;
 
   while ((italicMatch = italicRegex.exec(processedText)) !== null) {
     if (italicMatch.index > lastIndex) {
       italicParts.push(
-        <Text key={italicKey++} style={style}>
+        <Text key={`plain-italic-${italicMatch.index}`} style={style}>
           {processedText.substring(lastIndex, italicMatch.index)}
         </Text>
       );
     }
     italicParts.push(
-      <Text key={italicKey++} style={[style, { fontStyle: "italic" }]}>
+      <Text
+        key={`italic-${italicMatch.index}`}
+        style={[style, { fontStyle: "italic" }]}
+      >
         {italicMatch[1]}
       </Text>
     );
@@ -74,7 +79,7 @@ const MarkdownText = ({ text, style }) => {
 
   if (lastIndex < processedText.length) {
     italicParts.push(
-      <Text key={italicKey++} style={style}>
+      <Text key={`plain-end-${lastIndex}`} style={style}>
         {processedText.substring(lastIndex)}
       </Text>
     );
@@ -85,7 +90,7 @@ const MarkdownText = ({ text, style }) => {
       parts.push(...italicParts);
     } else {
       parts.push(
-        <Text key={key++} style={style}>
+        <Text key={`remaining-${lastIndex}`} style={style}>
           {processedText}
         </Text>
       );
@@ -111,7 +116,7 @@ const TypingIndicator = ({ currentTheme }) => (
   >
     {[0, 1, 2].map((index) => (
       <MotiView
-        key={index}
+        key={`dot-${index}`} // Unique key for each dot
         from={{ opacity: 0.3, translateY: 0 }}
         animate={{ opacity: 1, translateY: -4 }}
         transition={{
@@ -245,7 +250,7 @@ export default function HomeScreen() {
       secondary: "#F0F0F7",
       messageBg: "#F3F3FF",
       userMessageBg: "#6C5CE7",
-      userMessageText: "#FFFFFF", // Added
+      userMessageText: "#FFFFFF",
       border: "#EAEAEA",
       placeholder: "#A0A0B9",
       errorBg: "#FFEEF0",
@@ -261,7 +266,7 @@ export default function HomeScreen() {
       secondary: "#252542",
       messageBg: "#252542",
       userMessageBg: "#8A65FF",
-      userMessageText: "#FFFFFF", // Added
+      userMessageText: "#FFFFFF",
       border: "#303050",
       placeholder: "#8888A0",
       errorBg: "#3F2E40",
@@ -308,18 +313,21 @@ export default function HomeScreen() {
       setUserId(storedUserId);
       setIsTenant(storedUserId.startsWith("t_"));
     }
-    if (storedMallId) setSelectedMall(storedMallId);
+    if (storedMallId) setSelectedMall(storedMallId); // Stored as string
   };
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.1.17:8000/malls");
+      const response = await fetch("http://192.168.1.27:8000/malls");
       const data = await response.json();
       console.log(data);
       setMalls(data);
       if (data.length > 0 && !selectedMall) {
-        setSelectedMall(data[0].mall_id);
-        await AsyncStorage.setItem("selected_mall_id", data[0].mall_id);
+        setSelectedMall(data[0].mall_id.toString()); // Set as string
+        await AsyncStorage.setItem(
+          "selected_mall_id",
+          data[0].mall_id.toString()
+        );
       }
     } catch (error) {
       console.error("Error fetching malls:", error);
@@ -327,8 +335,9 @@ export default function HomeScreen() {
   };
 
   const handleMallChange = async (mallId) => {
-    setSelectedMall(mallId);
-    await AsyncStorage.setItem("selected_mall_id", mallId);
+    const mallIdStr = mallId.toString(); // Ensure string
+    setSelectedMall(mallIdStr);
+    await AsyncStorage.setItem("selected_mall_id", mallIdStr);
     setShowMallSelector(false);
     clearChat();
   };
@@ -358,14 +367,14 @@ export default function HomeScreen() {
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://192.168.1.17:8000/chat"
-          : "http://192.168.1.17:8000/tenant/update";
+          ? "http://192.168.1.27:8000/chat"
+          : "http://192.168.1.27:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
         user_id: userId || undefined,
         session_id: sessionId,
         language: language,
-        mall_id: parseInt(selectedMall),
+        mall_id: parseInt(selectedMall), // Convert to int for backend
       };
 
       const response = await fetch(backendUrl, {
@@ -477,7 +486,7 @@ export default function HomeScreen() {
   const getCurrentMallName = () => {
     if (!selectedMall || malls.length === 0) return "Select Mall";
     const currentMall = malls.find(
-      (mall) => mall.mall_id === parseInt(selectedMall)
+      (mall) => mall.mall_id.toString() === selectedMall // String comparison
     );
     return currentMall ? currentMall.name_en : "Select Mall";
   };
@@ -491,7 +500,7 @@ export default function HomeScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} // Added for better Android behavior
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <MotiView
           from={{ opacity: 0, translateY: -20 }}
@@ -518,32 +527,14 @@ export default function HomeScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <LinearGradient
-                colors={[currentTheme.primary, currentTheme.secondary]} // Updated to use theme colors
+              <Image
+                source={require("../assets/logo.png")}
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginRight: 12,
+                  width: 100,
+                  height: 30,
+                  resizeMode: "contain",
                 }}
-              >
-                <Ionicons
-                  name="chatbubble-ellipses"
-                  size={20}
-                  color={currentTheme.userMessageText}
-                />
-              </LinearGradient>
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontFamily: "Poppins-SemiBold",
-                  color: currentTheme.text,
-                }}
-              >
-                {language === "en" ? "Cenomi AI" : "سينومي AI"}
-              </Text>
+              />
             </View>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <TouchableOpacity
@@ -663,14 +654,14 @@ export default function HomeScreen() {
             >
               {malls.map((mall) => (
                 <TouchableOpacity
-                  key={mall.mall_id}
+                  key={mall.mall_id} // Unique key from mall_id
                   onPress={() => handleMallChange(mall.mall_id)}
                   style={{
                     paddingVertical: 12,
                     borderBottomWidth: 1,
                     borderBottomColor: currentTheme.border,
                     backgroundColor:
-                      parseInt(selectedMall) === mall.mall_id
+                      mall.mall_id.toString() === selectedMall
                         ? currentTheme.secondary
                         : "transparent",
                     borderRadius: 8,
@@ -681,11 +672,11 @@ export default function HomeScreen() {
                   <Text
                     style={{
                       color:
-                        parseInt(selectedMall) === mall.mall_id
+                        mall.mall_id.toString() === selectedMall
                           ? currentTheme.primary
                           : currentTheme.text,
                       fontFamily:
-                        parseInt(selectedMall) === mall.mall_id
+                        mall.mall_id.toString() === selectedMall
                           ? "Poppins-Medium"
                           : "Poppins-Regular",
                       fontSize: 15,
@@ -808,7 +799,7 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {quickPrompts[language][activeTab].map((prompt, index) => (
                     <TouchableOpacity
-                      key={index}
+                      key={`prompt-${index}`} // Unique key for prompts
                       onPress={() => setMessage(prompt)}
                       style={{
                         backgroundColor: currentTheme.secondary,
@@ -971,8 +962,7 @@ export default function HomeScreen() {
                     fontFamily: "Poppins-Medium",
                   }}
                 >
-                  {language === "en" ? "New Session" : "جلسة جديدة"}{" "}
-                  {/* Fixed typo */}
+                  {language === "en" ? "New Session" : "جلسة جديدة"}
                 </Text>
               </TouchableOpacity>
             </View>
