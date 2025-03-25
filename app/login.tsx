@@ -8,13 +8,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  ActivityIndicator,
-  Animated,
+  Dimensions,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFonts } from "expo-font";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView } from "moti";
 import axios from "axios";
+
+const { width } = Dimensions.get("window");
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -22,21 +27,80 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [language, setLanguage] = useState("en");
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const router = useRouter();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef(null);
 
+  // Load custom fonts
+  const [fontsLoaded] = useFonts({
+    "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
+    "Poppins-Medium": require("../assets/fonts/Poppins-Medium.ttf"),
+    "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
+    "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
+  });
+
+  // Theme definitions matching index.tsx
+  const themes = {
+    light: {
+      background: "#FFFFFF",
+      text: "#303342",
+      primary: "#6C5CE7",
+      secondary: "#F0F0F7",
+      messageBg: "#F3F3FF",
+      userMessageBg: "#6C5CE7",
+      userMessageText: "#FFFFFF",
+      border: "#EAEAEA",
+      placeholder: "#A0A0B9",
+      errorBg: "#FFEEF0",
+      headerBg: "#FFFFFF",
+    },
+    dark: {
+      background: "#1A1A2E",
+      text: "#E0E0E6",
+      primary: "#8A65FF",
+      secondary: "#252542",
+      messageBg: "#252542",
+      userMessageBg: "#8A65FF",
+      userMessageText: "#FFFFFF",
+      border: "#303050",
+      placeholder: "#8888A0",
+      errorBg: "#3F2E40",
+      headerBg: "#1A1A2E",
+    },
+  };
+
+  const currentTheme = isDarkMode ? themes.dark : themes.light;
+
+  // Load initial settings
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
+    AsyncStorage.getItem("darkMode").then((value) => {
+      setIsDarkMode(value === "true");
+    });
+    AsyncStorage.getItem("language").then((value) => {
+      if (value) setLanguage(value);
+    });
   }, []);
+
+  const toggleDarkMode = async () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    await AsyncStorage.setItem("darkMode", newMode.toString());
+  };
+
+  const toggleLanguage = async () => {
+    const newLang = language === "en" ? "ar" : "en";
+    setLanguage(newLang);
+    await AsyncStorage.setItem("language", newLang);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setError("Please enter both email and password");
+      setError(
+        language === "en"
+          ? "Please enter both email and password"
+          : "يرجى إدخال البريد الإلكتروني وكلمة المرور"
+      );
       return;
     }
 
@@ -52,141 +116,398 @@ export default function LoginScreen() {
       await AsyncStorage.setItem("user_id", user_id);
       router.push("/");
     } catch (error) {
-      setError("Invalid credentials");
+      setError(
+        language === "en" ? "Invalid credentials" : "بيانات اعتماد غير صالحة"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (!fontsLoaded) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: currentTheme.background,
+        }}
+      >
+        <Text
+          style={{ color: currentTheme.text, fontFamily: "Poppins-Regular" }}
+        >
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.background }}>
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={currentTheme.headerBg}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <View className="flex-row items-center justify-between px-5 py-4">
-          <TouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
-            <Ionicons name="chevron-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text className="text-xl font-semibold text-gray-800">Cenomi AI</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        <Animated.View
-          className="flex-1 justify-center px-8"
-          style={{ opacity: fadeAnim }}
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 800 }}
+          style={{ flex: 1 }}
         >
-          <View className="items-center mb-10">
-            <View className="w-20 h-20 rounded-full bg-black items-center justify-center mb-6 shadow-md">
-              <Ionicons name="person" size={40} color="#fff" />
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 20,
+              paddingVertical: 15,
+              backgroundColor: currentTheme.headerBg,
+              elevation: 4,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDarkMode ? 0.3 : 0.1,
+              shadowRadius: 4,
+              borderBottomColor: currentTheme.border,
+              borderBottomWidth: 1,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ padding: 8 }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={currentTheme.text}
+              />
+            </TouchableOpacity>
+            <Image
+              source={require("../assets/logo.png")}
+              style={{
+                width: 100,
+                height: 30,
+                resizeMode: "contain",
+              }}
+            />
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                onPress={toggleDarkMode}
+                style={{
+                  marginRight: 12,
+                  padding: 8,
+                  backgroundColor: currentTheme.secondary,
+                  borderRadius: 20,
+                }}
+              >
+                <Ionicons
+                  name={isDarkMode ? "sunny" : "moon"}
+                  size={18}
+                  color={currentTheme.text}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={toggleLanguage}>
+                <Text
+                  style={{
+                    color: currentTheme.text,
+                    fontFamily: "Poppins-Medium",
+                    fontSize: 14,
+                  }}
+                >
+                  {language === "en" ? "عربي" : "EN"}
+                </Text>
+              </TouchableOpacity>
             </View>
-            <Text className="text-3xl font-bold text-gray-800">Sign In</Text>
-            <Text className="text-gray-500 mt-2 text-center">
-              Login to access your Cenomi AI account
-            </Text>
           </View>
 
-          <View className="mb-6 space-y-4">
-            <View className="space-y-2">
-              <Text className="text-gray-600 text-sm font-medium ml-1">
-                Email
-              </Text>
-              <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
+          {/* Login Form */}
+          <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
+            <MotiView
+              from={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", delay: 300 }}
+              style={{ alignItems: "center", marginBottom: 30 }}
+            >
+              <LinearGradient
+                colors={[currentTheme.primary, currentTheme.secondary]}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 20,
+                }}
+              >
                 <Ionicons
-                  name="mail-outline"
-                  size={18}
-                  color="#777"
-                  style={{ marginRight: 10 }}
+                  name="person"
+                  size={40}
+                  color={currentTheme.userMessageText}
                 />
-                <TextInput
-                  className="flex-1 text-gray-800"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setError("");
-                  }}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  blurOnSubmit={false}
-                />
-              </View>
-            </View>
+              </LinearGradient>
+              <Text
+                style={{
+                  fontSize: 28,
+                  fontFamily: "Poppins-Bold",
+                  color: currentTheme.text,
+                }}
+              >
+                {language === "en" ? "Sign In" : "تسجيل الدخول"}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontFamily: "Poppins-Regular",
+                  color: currentTheme.placeholder,
+                  textAlign: "center",
+                  marginTop: 8,
+                }}
+              >
+                {language === "en"
+                  ? "Login to access your Cenomi AI account"
+                  : "تسجيل الدخول للوصول إلى حساب سينومي AI الخاص بك"}
+              </Text>
+            </MotiView>
 
-            <View className="space-y-2">
-              <Text className="text-gray-600 text-sm font-medium ml-1">
-                Password
-              </Text>
-              <View className="flex-row items-center bg-gray-50 rounded-xl border border-gray-200 px-4 py-3">
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={18}
-                  color="#777"
-                  style={{ marginRight: 10 }}
-                />
-                <TextInput
-                  ref={passwordRef}
-                  className="flex-1 text-gray-800"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    setError("");
+            <View style={{ marginBottom: 20, spaceY: 16 }}>
+              {/* Email Input */}
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontFamily: "Poppins-Medium",
+                    color: currentTheme.text,
+                    fontSize: 14,
+                    marginBottom: 6,
                   }}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  className="p-1"
+                >
+                  {language === "en" ? "Email" : "البريد الإلكتروني"}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: currentTheme.messageBg,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: currentTheme.border,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
                 >
                   <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={20}
-                    color="#777"
+                    name="mail-outline"
+                    size={18}
+                    color={currentTheme.placeholder}
+                    style={{ marginRight: 10 }}
                   />
-                </TouchableOpacity>
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      color: currentTheme.text,
+                      fontFamily: "Poppins-Regular",
+                      fontSize: 15,
+                      textAlign: language === "ar" ? "right" : "left",
+                    }}
+                    placeholder={
+                      language === "en"
+                        ? "Enter your email"
+                        : "أدخل بريدك الإلكتروني"
+                    }
+                    placeholderTextColor={currentTheme.placeholder}
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      setError("");
+                    }}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    blurOnSubmit={false}
+                  />
+                </View>
               </View>
+
+              {/* Password Input */}
+              <View style={{ marginBottom: 16 }}>
+                <Text
+                  style={{
+                    fontFamily: "Poppins-Medium",
+                    color: currentTheme.text,
+                    fontSize: 14,
+                    marginBottom: 6,
+                  }}
+                >
+                  {language === "en" ? "Password" : "كلمة المرور"}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: currentTheme.messageBg,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: currentTheme.border,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  }}
+                >
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color={currentTheme.placeholder}
+                    style={{ marginRight: 10 }}
+                  />
+                  <TextInput
+                    ref={passwordRef}
+                    style={{
+                      flex: 1,
+                      color: currentTheme.text,
+                      fontFamily: "Poppins-Regular",
+                      fontSize: 15,
+                      textAlign: language === "ar" ? "right" : "left",
+                    }}
+                    placeholder={
+                      language === "en"
+                        ? "Enter your password"
+                        : "أدخل كلمة المرور"
+                    }
+                    placeholderTextColor={currentTheme.placeholder}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      setError("");
+                    }}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={{ padding: 4 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color={currentTheme.placeholder}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Error Message */}
+              {error ? (
+                <Text
+                  style={{
+                    color: currentTheme.errorBg.includes("FF")
+                      ? "#E74C3C"
+                      : "#E0E0E6",
+                    fontFamily: "Poppins-Regular",
+                    fontSize: 13,
+                    marginBottom: 10,
+                    textAlign: language === "ar" ? "right" : "left",
+                  }}
+                >
+                  {error}
+                </Text>
+              ) : null}
+
+              {/* Forgot Password */}
+              <TouchableOpacity
+                onPress={() => console.log("Forgot password")}
+                style={{ alignSelf: "flex-end" }}
+              >
+                <Text
+                  style={{
+                    color: currentTheme.primary,
+                    fontFamily: "Poppins-Medium",
+                    fontSize: 13,
+                  }}
+                >
+                  {language === "en" ? "Forgot Password?" : "نسيت كلمة المرور؟"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {error ? (
-              <Text className="text-red-500 text-sm ml-1">{error}</Text>
-            ) : null}
-
+            {/* Sign In Button */}
             <TouchableOpacity
-              onPress={() => console.log("Forgot password")}
-              className="self-end"
+              onPress={handleLogin}
+              disabled={!email || !password || isLoading}
+              style={{
+                backgroundColor:
+                  !email || !password || isLoading
+                    ? currentTheme.secondary
+                    : currentTheme.primary,
+                borderRadius: 25,
+                paddingVertical: 14,
+                alignItems: "center",
+                elevation: 2,
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: 0.1,
+                shadowRadius: 2,
+              }}
             >
-              <Text className="text-gray-600 text-sm">Forgot Password?</Text>
+              {isLoading ? (
+                <Ionicons
+                  name="refresh"
+                  size={20}
+                  color={currentTheme.userMessageText}
+                  style={{ transform: [{ rotate: "360deg" }] }}
+                />
+              ) : (
+                <Text
+                  style={{
+                    color: currentTheme.userMessageText,
+                    fontFamily: "Poppins-SemiBold",
+                    fontSize: 16,
+                  }}
+                >
+                  {language === "en" ? "Sign In" : "تسجيل الدخول"}
+                </Text>
+              )}
             </TouchableOpacity>
-          </View>
 
-          <TouchableOpacity
-            onPress={handleLogin}
-            className={`${
-              !email || !password ? "bg-gray-300" : "bg-black"
-            } py-4 rounded-xl items-center shadow-sm mt-2`}
-            disabled={!email || !password || isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white font-semibold text-lg">Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          <View className="mt-8 items-center">
-            <Text className="text-gray-500">
-              Don't have an account?{" "}
-              <Text className="text-black font-semibold">Register Now</Text>
-            </Text>
+            {/* Register Link */}
+            <View
+              style={{
+                marginTop: 20,
+                flexDirection: "row",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: currentTheme.placeholder,
+                  fontFamily: "Poppins-Regular",
+                  fontSize: 14,
+                }}
+              >
+                {language === "en"
+                  ? "Don't have an account? "
+                  : "ليس لديك حساب؟ "}
+              </Text>
+              <TouchableOpacity onPress={() => console.log("Register")}>
+                <Text
+                  style={{
+                    color: currentTheme.primary,
+                    fontFamily: "Poppins-Medium",
+                    fontSize: 14,
+                  }}
+                >
+                  {language === "en" ? "Register Now" : "سجل الآن"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Animated.View>
+        </MotiView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
