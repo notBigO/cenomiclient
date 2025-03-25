@@ -8,19 +8,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Animated,
   Dimensions,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
+import { LinearGradient } from "expo-linear-gradient";
+import { MotiView, MotiText } from "moti";
 
 const { width, height } = Dimensions.get("window");
 
-// Markdown renderer component (unchanged)
+// Markdown renderer component
 const MarkdownText = ({ text, style }) => {
   const parts = [];
   let lastIndex = 0;
@@ -99,62 +100,70 @@ const MarkdownText = ({ text, style }) => {
   return <Text style={style}>{text}</Text>;
 };
 
-// Typing Indicator Component
-const TypingIndicator = ({ dot1, dot2, dot3, currentTheme }) => (
-  <View style={{ flexDirection: "row", alignItems: "center" }}>
-    {[dot1, dot2, dot3].map((dot, index) => (
-      <Animated.View
+// Typing Indicator Component (Using MotiView instead of Animated)
+const TypingIndicator = ({ currentTheme }) => (
+  <MotiView
+    style={{
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 8,
+    }}
+  >
+    {[0, 1, 2].map((index) => (
+      <MotiView
         key={index}
+        from={{ opacity: 0.3, translateY: 0 }}
+        animate={{ opacity: 1, translateY: -4 }}
+        transition={{
+          type: "timing",
+          duration: 300,
+          loop: true,
+          delay: index * 200,
+        }}
         style={{
           width: 6,
           height: 6,
           borderRadius: 3,
           backgroundColor: currentTheme.text,
-          marginHorizontal: 2,
-          opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-          transform: [
-            { translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
-          ],
+          marginHorizontal: 3,
         }}
       />
     ))}
-  </View>
+  </MotiView>
 );
 
 // Animated Message Component
 const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(anim, {
-      toValue: 1,
-      duration: 300,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
-  }, [index, anim]);
-
   return (
-    <Animated.View
+    <MotiView
+      from={{ opacity: 0, translateY: 20 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: "timing", duration: 300, delay: index * 50 }}
       style={{
-        opacity: anim,
-        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
         marginBottom: 15,
         alignItems: msg.isUser ? "flex-end" : "flex-start",
-        maxWidth: width * 0.75,
+        maxWidth: "85%",
+        alignSelf: msg.isUser ? "flex-end" : "flex-start",
       }}
     >
       <View
         style={{
           backgroundColor: msg.isUser
             ? currentTheme.userMessageBg
-            : msg.text.includes("only store owners") || msg.text.includes("Invalid tenant")
+            : msg.text.includes("only store owners") ||
+              msg.text.includes("Invalid tenant")
             ? currentTheme.errorBg
             : currentTheme.messageBg,
           borderRadius: 20,
-          padding: 12,
-          borderTopLeftRadius: msg.isUser ? 20 : 0,
-          borderTopRightRadius: msg.isUser ? 0 : 20,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderTopLeftRadius: msg.isUser ? 20 : 6,
+          borderTopRightRadius: msg.isUser ? 6 : 20,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 1,
         }}
       >
         {msg.isUser ? (
@@ -162,6 +171,8 @@ const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
             style={{
               color: currentTheme.userMessageText,
               fontFamily: "Poppins-Regular",
+              fontSize: 15,
+              lineHeight: 22,
               textAlign: language === "ar" ? "right" : "left",
             }}
           >
@@ -173,17 +184,27 @@ const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
             style={{
               color: currentTheme.text,
               fontFamily: "Poppins-Regular",
+              fontSize: 15,
+              lineHeight: 22,
               textAlign: language === "ar" ? "right" : "left",
             }}
           />
         )}
       </View>
       {msg.timestamp && (
-        <Text style={{ color: currentTheme.placeholder, fontSize: 10, marginTop: 5, fontFamily: "Poppins-Regular" }}>
+        <Text
+          style={{
+            color: currentTheme.placeholder,
+            fontSize: 11,
+            marginTop: 4,
+            marginHorizontal: 4,
+            fontFamily: "Poppins-Regular",
+          }}
+        >
           {msg.timestamp}
         </Text>
       )}
-    </Animated.View>
+    </MotiView>
   );
 };
 
@@ -203,48 +224,51 @@ export default function HomeScreen() {
   const [malls, setMalls] = useState([]);
   const [selectedMall, setSelectedMall] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showMallSelector, setShowMallSelector] = useState(false);
   const scrollViewRef = useRef(null);
   const router = useRouter();
-
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(-50)).current;
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
     "Poppins-Medium": require("../assets/fonts/Poppins-Medium.ttf"),
     "Poppins-Bold": require("../assets/fonts/Poppins-Bold.ttf"),
+    "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
   });
 
-  // Theme definitions
+  // Theme definitions with more modern color palette
   const themes = {
     light: {
       background: "#FFFFFF",
-      text: "#333333",
-      primary: "#8A2BE2",
-      secondary: "#E6E6FA",
-      messageBg: "#F3E5F5",
-      userMessageBg: "#8A2BE2",
-      userMessageText: "#FFFFFF",
-      border: "#E0E0E0",
-      placeholder: "#9E9E9E",
-      errorBg: "#FFEBEE",
+      text: "#303342",
+      primary: "#6C5CE7",
+      secondary: "#F0F0F7",
+      messageBg: "#F3F3FF",
+      userMessageBg: "#6C5CE7",
+      userMessageText: "#FFFFFF", // Added
+      border: "#EAEAEA",
+      placeholder: "#A0A0B9",
+      errorBg: "#FFEEF0",
+      headerBg: "#FFFFFF",
+      tabActive: "#6C5CE7",
+      tabInactive: "#F0F0F7",
+      inputBg: "#F5F5FA",
     },
     dark: {
-      background: "#121212",
-      text: "#E0E0E0",
-      primary: "#BB86FC",
-      secondary: "#302030",
-      messageBg: "#2D1F3D",
-      userMessageBg: "#BB86FC",
-      userMessageText: "#121212",
-      border: "#3D3D3D",
-      placeholder: "#9E9E9E",
-      errorBg: "#432222",
+      background: "#1A1A2E",
+      text: "#E0E0E6",
+      primary: "#8A65FF",
+      secondary: "#252542",
+      messageBg: "#252542",
+      userMessageBg: "#8A65FF",
+      userMessageText: "#FFFFFF", // Added
+      border: "#303050",
+      placeholder: "#8888A0",
+      errorBg: "#3F2E40",
+      headerBg: "#1A1A2E",
+      tabActive: "#8A65FF",
+      tabInactive: "#252542",
+      inputBg: "#252542",
     },
   };
 
@@ -256,35 +280,15 @@ export default function HomeScreen() {
       setIsDarkMode(value === "true");
     });
 
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
-    ]).start();
-
     loadUserData();
     fetchMalls();
   }, []);
 
   useEffect(() => {
     if (isTyping) {
-      Animated.loop(
-        Animated.stagger(200, [
-          Animated.sequence([
-            Animated.timing(dot1, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.timing(dot1, { toValue: 0, duration: 300, useNativeDriver: true }),
-          ]),
-          Animated.sequence([
-            Animated.timing(dot2, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.timing(dot2, { toValue: 0, duration: 300, useNativeDriver: true }),
-          ]),
-          Animated.sequence([
-            Animated.timing(dot3, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.timing(dot3, { toValue: 0, duration: 300, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
+      // Animation is now handled by MotiView in TypingIndicator
     }
-  }, [isTyping, dot1, dot2, dot3]);
+  }, [isTyping]);
 
   // Functional methods
   const toggleDarkMode = async () => {
@@ -309,8 +313,9 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.1.29:8000/malls");
+      const response = await fetch("http://192.168.1.17:8000/malls");
       const data = await response.json();
+      console.log(data);
       setMalls(data);
       if (data.length > 0 && !selectedMall) {
         setSelectedMall(data[0].mall_id);
@@ -324,6 +329,7 @@ export default function HomeScreen() {
   const handleMallChange = async (mallId) => {
     setSelectedMall(mallId);
     await AsyncStorage.setItem("selected_mall_id", mallId);
+    setShowMallSelector(false);
     clearChat();
   };
 
@@ -340,7 +346,10 @@ export default function HomeScreen() {
       id: messages.length + 1,
       text: message,
       isUser: true,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
     setMessages([...messages, userMessage]);
     setMessage("");
@@ -348,7 +357,9 @@ export default function HomeScreen() {
 
     try {
       const backendUrl =
-        activeTab === "chat" ? "http://192.168.1.29:8000/chat" : "http://192.168.1.29:8000/tenant/update";
+        activeTab === "chat"
+          ? "http://192.168.1.17:8000/chat"
+          : "http://192.168.1.17:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
         user_id: userId || undefined,
@@ -373,7 +384,10 @@ export default function HomeScreen() {
         id: messages.length + 2,
         text: data.message,
         isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
       setMessages((prev) => [...prev, botResponse]);
       setSessionId(data.session_id);
@@ -386,12 +400,18 @@ export default function HomeScreen() {
             ? "Sorry, only store owners can update details. Want to explore the mall instead?"
             : "Sorry, something went wrong. Please try again later.",
         isUser: false,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
-      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
     }
   };
 
@@ -410,28 +430,75 @@ export default function HomeScreen() {
 
   const quickPrompts = {
     en: {
-      chat: ["Where is Trendy Threads?", "What offers are available?", "Check my loyalty points"],
-      update: ["Add 20% off on shoes", "Update store location to Level 2", "Show my store details"],
+      chat: [
+        "Where is Trendy Threads?",
+        "What offers are available?",
+        "Check my loyalty points",
+      ],
+      update: [
+        "Add 20% off on shoes",
+        "Update store location to Level 2",
+        "Show my store details",
+      ],
     },
     ar: {
-      chat: ["أين تقع تريندي ثريدز؟", "ما هي العروض المتوفرة؟", "تحقق من نقاط ولائي"],
-      update: ["أضف خصم 20% على الأحذية", "تحديث موقع المتجر إلى الطابق الثاني", "عرض تفاصيل متجري"],
+      chat: [
+        "أين تقع تريندي ثريدز؟",
+        "ما هي العروض المتوفرة؟",
+        "تحقق من نقاط ولائي",
+      ],
+      update: [
+        "أضف خصم 20% على الأحذية",
+        "تحديث موقع المتجر إلى الطابق الثاني",
+        "عرض تفاصيل متجري",
+      ],
     },
   };
 
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: currentTheme.background }}>
-        <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Regular" }}>Loading...</Text>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: currentTheme.background,
+        }}
+      >
+        <Text
+          style={{ color: currentTheme.text, fontFamily: "Poppins-Regular" }}
+        >
+          Loading...
+        </Text>
       </View>
     );
   }
 
+  const getCurrentMallName = () => {
+    if (!selectedMall || malls.length === 0) return "Select Mall";
+    const currentMall = malls.find(
+      (mall) => mall.mall_id === parseInt(selectedMall)
+    );
+    return currentMall ? currentMall.name_en : "Select Mall";
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: currentTheme.background }}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], flex: 1 }}>
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={currentTheme.headerBg}
+      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20} // Added for better Android behavior
+      >
+        <MotiView
+          from={{ opacity: 0, translateY: -20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: "timing", duration: 800 }}
+          style={{ flex: 1 }}
+        >
           {/* Header */}
           <View
             style={{
@@ -440,31 +507,41 @@ export default function HomeScreen() {
               justifyContent: "space-between",
               paddingHorizontal: 20,
               paddingVertical: 15,
-              borderBottomWidth: 1,
-              borderBottomColor: currentTheme.border,
-              backgroundColor: currentTheme.background,
+              backgroundColor: currentTheme.headerBg,
               elevation: 4,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: isDarkMode ? 0.3 : 0.1,
               shadowRadius: 4,
+              borderBottomColor: currentTheme.border,
+              borderBottomWidth: 1,
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <View
+              <LinearGradient
+                colors={[currentTheme.primary, currentTheme.secondary]} // Updated to use theme colors
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: currentTheme.primary,
                   alignItems: "center",
                   justifyContent: "center",
-                  marginRight: 10,
+                  marginRight: 12,
                 }}
               >
-                <Ionicons name="chatbubble-ellipses" size={20} color={currentTheme.userMessageText} />
-              </View>
-              <Text style={{ fontSize: 22, fontFamily: "Poppins-Bold", color: currentTheme.text }}>
+                <Ionicons
+                  name="chatbubble-ellipses"
+                  size={20}
+                  color={currentTheme.userMessageText}
+                />
+              </LinearGradient>
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontFamily: "Poppins-SemiBold",
+                  color: currentTheme.text,
+                }}
+              >
                 {language === "en" ? "Cenomi AI" : "سينومي AI"}
               </Text>
             </View>
@@ -472,17 +549,30 @@ export default function HomeScreen() {
               <TouchableOpacity
                 onPress={toggleDarkMode}
                 style={{
-                  marginRight: 15,
+                  marginRight: 12,
                   padding: 8,
                   backgroundColor: currentTheme.secondary,
                   borderRadius: 20,
                 }}
               >
-                <Ionicons name={isDarkMode ? "sunny" : "moon"} size={20} color={currentTheme.text} />
+                <Ionicons
+                  name={isDarkMode ? "sunny" : "moon"}
+                  size={18}
+                  color={currentTheme.text}
+                />
               </TouchableOpacity>
-              <TouchableOpacity onPress={toggleLanguage} style={{ marginRight: 15 }}>
-                <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Medium", fontSize: 16 }}>
-                  {language === "en" ? "عربي" : "English"}
+              <TouchableOpacity
+                onPress={toggleLanguage}
+                style={{ marginRight: 12 }}
+              >
+                <Text
+                  style={{
+                    color: currentTheme.text,
+                    fontFamily: "Poppins-Medium",
+                    fontSize: 14,
+                  }}
+                >
+                  {language === "en" ? "عربي" : "EN"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -498,38 +588,115 @@ export default function HomeScreen() {
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   backgroundColor: currentTheme.primary,
-                  borderRadius: 24,
+                  borderRadius: 20,
                 }}
               >
-                <Text style={{ color: currentTheme.userMessageText, fontFamily: "Poppins-Medium" }}>
-                  {language === "en" ? (userId ? "Logout" : "Login") : userId ? "تسجيل الخروج" : "تسجيل الدخول"}
+                <Text
+                  style={{
+                    color: "#FFFFFF",
+                    fontFamily: "Poppins-Medium",
+                    fontSize: 14,
+                  }}
+                >
+                  {language === "en"
+                    ? userId
+                      ? "Logout"
+                      : "Login"
+                    : userId
+                    ? "تسجيل الخروج"
+                    : "تسجيل الدخول"}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Mall Selection */}
-          <View style={{ paddingHorizontal: 20, paddingVertical: 10, backgroundColor: currentTheme.background }}>
-            <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Medium", marginBottom: 5 }}>
-              {language === "en" ? "Select Mall" : "اختر المول"}
-            </Text>
-            <View style={{ borderWidth: 1, borderColor: currentTheme.border, borderRadius: 12, overflow: "hidden" }}>
-              <Picker
-                selectedValue={selectedMall}
-                onValueChange={handleMallChange}
+          {/* Mall Selection Button */}
+          <TouchableOpacity
+            onPress={() => setShowMallSelector(!showMallSelector)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: 15,
+              borderBottomWidth: 1,
+              borderBottomColor: currentTheme.border,
+              backgroundColor: currentTheme.background,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={currentTheme.primary}
+                style={{ marginRight: 10 }}
+              />
+              <Text
                 style={{
-                  height: 50,
-                  width: "100%",
+                  fontFamily: "Poppins-Medium",
                   color: currentTheme.text,
-                  backgroundColor: currentTheme.messageBg,
+                  fontSize: 15,
                 }}
               >
-                {malls.map((mall) => (
-                  <Picker.Item key={mall.mall_id} label={mall.name_en} value={mall.mall_id} />
-                ))}
-              </Picker>
+                {getCurrentMallName()}
+              </Text>
             </View>
-          </View>
+            <Ionicons
+              name={showMallSelector ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={currentTheme.text}
+            />
+          </TouchableOpacity>
+
+          {/* Mall Selection Dropdown */}
+          {showMallSelector && (
+            <MotiView
+              from={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              transition={{ type: "timing", duration: 300 }}
+              style={{
+                backgroundColor: currentTheme.background,
+                borderBottomWidth: 1,
+                borderBottomColor: currentTheme.border,
+                paddingHorizontal: 20,
+                paddingBottom: 15,
+              }}
+            >
+              {malls.map((mall) => (
+                <TouchableOpacity
+                  key={mall.mall_id}
+                  onPress={() => handleMallChange(mall.mall_id)}
+                  style={{
+                    paddingVertical: 12,
+                    borderBottomWidth: 1,
+                    borderBottomColor: currentTheme.border,
+                    backgroundColor:
+                      parseInt(selectedMall) === mall.mall_id
+                        ? currentTheme.secondary
+                        : "transparent",
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    marginTop: 8,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color:
+                        parseInt(selectedMall) === mall.mall_id
+                          ? currentTheme.primary
+                          : currentTheme.text,
+                      fontFamily:
+                        parseInt(selectedMall) === mall.mall_id
+                          ? "Poppins-Medium"
+                          : "Poppins-Regular",
+                      fontSize: 15,
+                    }}
+                  >
+                    {mall.name_en}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </MotiView>
+          )}
 
           {/* Tabs for Tenants */}
           {isTenant && (
@@ -537,7 +704,8 @@ export default function HomeScreen() {
               style={{
                 flexDirection: "row",
                 justifyContent: "space-around",
-                paddingVertical: 10,
+                paddingVertical: 15,
+                paddingHorizontal: 20,
                 backgroundColor: currentTheme.background,
                 borderBottomWidth: 1,
                 borderBottomColor: currentTheme.border,
@@ -547,17 +715,29 @@ export default function HomeScreen() {
                 onPress={() => setActiveTab("chat")}
                 style={{
                   flex: 1,
-                  paddingVertical: 10,
-                  backgroundColor: activeTab === "chat" ? currentTheme.primary : currentTheme.secondary,
+                  paddingVertical: 12,
+                  backgroundColor:
+                    activeTab === "chat"
+                      ? currentTheme.tabActive
+                      : currentTheme.tabInactive,
                   borderTopLeftRadius: 20,
                   borderBottomLeftRadius: 20,
                   alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
                 }}
               >
+                <Ionicons
+                  name="chatbubble-outline"
+                  size={18}
+                  color={activeTab === "chat" ? "#FFFFFF" : currentTheme.text}
+                  style={{ marginRight: 8 }}
+                />
                 <Text
                   style={{
-                    color: activeTab === "chat" ? currentTheme.userMessageText : currentTheme.text,
+                    color: activeTab === "chat" ? "#FFFFFF" : currentTheme.text,
                     fontFamily: "Poppins-Medium",
+                    fontSize: 15,
                   }}
                 >
                   {language === "en" ? "Chat" : "دردشة"}
@@ -567,17 +747,30 @@ export default function HomeScreen() {
                 onPress={() => setActiveTab("update")}
                 style={{
                   flex: 1,
-                  paddingVertical: 10,
-                  backgroundColor: activeTab === "update" ? currentTheme.primary : currentTheme.secondary,
+                  paddingVertical: 12,
+                  backgroundColor:
+                    activeTab === "update"
+                      ? currentTheme.tabActive
+                      : currentTheme.tabInactive,
                   borderTopRightRadius: 20,
                   borderBottomRightRadius: 20,
                   alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "row",
                 }}
               >
+                <Feather
+                  name="edit"
+                  size={18}
+                  color={activeTab === "update" ? "#FFFFFF" : currentTheme.text}
+                  style={{ marginRight: 8 }}
+                />
                 <Text
                   style={{
-                    color: activeTab === "update" ? currentTheme.userMessageText : currentTheme.text,
+                    color:
+                      activeTab === "update" ? "#FFFFFF" : currentTheme.text,
                     fontFamily: "Poppins-Medium",
+                    fontSize: 15,
                   }}
                 >
                   {language === "en" ? "Update" : "تحديث"}
@@ -591,11 +784,25 @@ export default function HomeScreen() {
             ref={scrollViewRef}
             style={{ flex: 1, paddingHorizontal: 15, paddingTop: 15 }}
             contentContainerStyle={{ paddingBottom: 20 }}
-            onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+            onContentSizeChange={() =>
+              scrollViewRef.current?.scrollToEnd({ animated: true })
+            }
           >
             {messages.length === 2 && (
-              <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: currentTheme.placeholder, fontFamily: "Poppins-Regular", marginBottom: 10 }}>
+              <MotiView
+                from={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", delay: 300 }}
+                style={{ marginBottom: 25 }}
+              >
+                <Text
+                  style={{
+                    color: currentTheme.placeholder,
+                    fontFamily: "Poppins-Medium",
+                    marginBottom: 12,
+                    fontSize: 15,
+                  }}
+                >
                   {language === "en" ? "Try asking about:" : "جرب السؤال عن:"}
                 </Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
@@ -606,17 +813,27 @@ export default function HomeScreen() {
                       style={{
                         backgroundColor: currentTheme.secondary,
                         borderRadius: 20,
-                        paddingVertical: 8,
-                        paddingHorizontal: 15,
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
                         marginRight: 10,
                         marginBottom: 10,
+                        borderWidth: 1,
+                        borderColor: currentTheme.border,
                       }}
                     >
-                      <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Regular" }}>{prompt}</Text>
+                      <Text
+                        style={{
+                          color: currentTheme.text,
+                          fontFamily: "Poppins-Regular",
+                          fontSize: 14,
+                        }}
+                      >
+                        {prompt}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
+              </MotiView>
             )}
 
             {messages.map((msg, index) => (
@@ -630,20 +847,21 @@ export default function HomeScreen() {
             ))}
 
             {isTyping && (
-              <View style={{ marginBottom: 15, alignItems: "flex-start", maxWidth: width * 0.75 }}>
-                <View
-                  style={{
-                    backgroundColor: currentTheme.messageBg,
-                    borderRadius: 20,
-                    padding: 12,
-                    borderTopLeftRadius: 0,
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <TypingIndicator dot1={dot1} dot2={dot2} dot3={dot3} currentTheme={currentTheme} />
-                </View>
-              </View>
+              <MotiView
+                from={{ opacity: 0, translateY: 10 }}
+                animate={{ opacity: 1, translateY: 0 }}
+                style={{
+                  marginBottom: 15,
+                  alignItems: "flex-start",
+                  maxWidth: width * 0.3,
+                  backgroundColor: currentTheme.messageBg,
+                  borderRadius: 20,
+                  borderTopLeftRadius: 4,
+                  padding: 4,
+                }}
+              >
+                <TypingIndicator currentTheme={currentTheme} />
+              </MotiView>
             )}
           </ScrollView>
 
@@ -697,16 +915,29 @@ export default function HomeScreen() {
                 onPress={handleSend}
                 disabled={!message.trim() || !selectedMall || isTyping}
                 style={{
-                  backgroundColor: message.trim() && selectedMall ? currentTheme.primary : currentTheme.secondary,
+                  backgroundColor:
+                    message.trim() && selectedMall
+                      ? currentTheme.primary
+                      : currentTheme.secondary,
                   borderRadius: 25,
                   padding: 12,
                   marginRight: 5,
                 }}
               >
-                <Ionicons name="paper-plane-outline" size={20} color={currentTheme.userMessageText} />
+                <Ionicons
+                  name="paper-plane-outline"
+                  size={20}
+                  color={currentTheme.userMessageText}
+                />
               </TouchableOpacity>
             </View>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 10 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                marginTop: 10,
+              }}
+            >
               <TouchableOpacity
                 onPress={clearChat}
                 style={{
@@ -716,7 +947,12 @@ export default function HomeScreen() {
                   borderRadius: 20,
                 }}
               >
-                <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Medium" }}>
+                <Text
+                  style={{
+                    color: currentTheme.text,
+                    fontFamily: "Poppins-Medium",
+                  }}
+                >
                   {language === "en" ? "Clear Chat" : "مسح الدردشة"}
                 </Text>
               </TouchableOpacity>
@@ -729,8 +965,14 @@ export default function HomeScreen() {
                   borderRadius: 20,
                 }}
               >
-                <Text style={{ color: currentTheme.text, fontFamily: "Poppins-Medium" }}>
-                  {language === "en" ? "New Session" : "ج filmmakerجديدة"}
+                <Text
+                  style={{
+                    color: currentTheme.text,
+                    fontFamily: "Poppins-Medium",
+                  }}
+                >
+                  {language === "en" ? "New Session" : "جلسة جديدة"}{" "}
+                  {/* Fixed typo */}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -748,7 +990,7 @@ export default function HomeScreen() {
                 : "سينومي AI يساعد في الاستفسارات والتحديثات"}
             </Text>
           </View>
-        </Animated.View>
+        </MotiView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
