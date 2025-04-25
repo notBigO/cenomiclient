@@ -108,7 +108,7 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://192.168.1.27:8000/login", {
+      const response = await axios.post("http://192.168.0.23:8000/login", {
         email,
         password,
       });
@@ -420,7 +420,7 @@ export default function LoginScreen() {
               ) : null}
 
               {/* Forgot Password */}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={() => console.log("Forgot password")}
                 style={{ alignSelf: "flex-end" }}
               >
@@ -433,11 +433,11 @@ export default function LoginScreen() {
                 >
                   {language === "en" ? "Forgot Password?" : "نسيت كلمة المرور؟"}
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
 
             {/* Sign In Button */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={handleLogin}
               disabled={!email || !password || isLoading}
               style={{
@@ -473,10 +473,10 @@ export default function LoginScreen() {
                   {language === "en" ? "Sign In" : "تسجيل الدخول"}
                 </Text>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Register Link */}
-            <View
+            {/* <View
               style={{
                 marginTop: 20,
                 flexDirection: "row",
@@ -505,7 +505,7 @@ export default function LoginScreen() {
                   {language === "en" ? "Register Now" : "سجل الآن"}
                 </Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
           </View>
         </MotiView>
       </KeyboardAvoidingView>

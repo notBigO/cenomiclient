@@ -222,7 +222,7 @@ export default function HomeScreen() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const [language, setLanguage] = useState("en");
-  const [sessionId, setSessionId] = useState(null);
+  const [conversationId, setConversationId] = useState(null);
   const [userId, setUserId] = useState(null);
   const [isTenant, setIsTenant] = useState(false);
   const [activeTab, setActiveTab] = useState("chat");
@@ -304,11 +304,11 @@ export default function HomeScreen() {
 
   const loadUserData = async () => {
     const storedLang = await AsyncStorage.getItem("language");
-    const storedSessionId = await AsyncStorage.getItem("session_id");
+    const storedConversationId = await AsyncStorage.getItem("conversation_id");
     const storedUserId = await AsyncStorage.getItem("user_id");
     const storedMallId = await AsyncStorage.getItem("selected_mall_id");
     if (storedLang) setLanguage(storedLang);
-    if (storedSessionId) setSessionId(storedSessionId);
+    if (storedConversationId) setConversationId(storedConversationId);
     if (storedUserId) {
       setUserId(storedUserId);
       setIsTenant(storedUserId.startsWith("t_"));
@@ -318,7 +318,7 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.1.27:8000/malls");
+      const response = await fetch("http://192.168.0.38:8000/malls");
       const data = await response.json();
       console.log(data);
       setMalls(data);
@@ -367,12 +367,12 @@ export default function HomeScreen() {
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://192.168.1.27:8000/chat"
-          : "http://192.168.1.27:8000/tenant/update";
+          ? "http://192.168.0.38:8000/chat"
+          : "http://192.168.0.38:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
         user_id: userId || undefined,
-        session_id: sessionId,
+        conversation_id: conversationId,
         language: language,
         mall_id: parseInt(selectedMall), // Convert to int for backend
       };
@@ -399,8 +399,8 @@ export default function HomeScreen() {
         }),
       };
       setMessages((prev) => [...prev, botResponse]);
-      setSessionId(data.session_id);
-      await AsyncStorage.setItem("session_id", data.session_id);
+      setConversationId(data.conversation_id);
+      await AsyncStorage.setItem("conversation_id", data.conversation_id);
     } catch (error) {
       const errorMessage = {
         id: messages.length + 2,
@@ -432,8 +432,8 @@ export default function HomeScreen() {
   };
 
   const newSession = async () => {
-    setSessionId(null);
-    await AsyncStorage.removeItem("session_id");
+    setConversationId(null);
+    await AsyncStorage.removeItem("conversation_id");
     clearChat();
   };
 
@@ -571,7 +571,7 @@ export default function HomeScreen() {
                   await AsyncStorage.clear();
                   setUserId(null);
                   setIsTenant(false);
-                  setSessionId(null);
+                  setConversationId(null);
                   setSelectedMall(null);
                   router.push("/login");
                 }}
