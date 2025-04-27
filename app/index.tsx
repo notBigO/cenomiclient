@@ -251,45 +251,50 @@ export default function HomeScreen() {
 
   // Setup Voice recognition listeners
   useEffect(() => {
-    // Initialize voice recognition
-    Voice.onSpeechStart = () => {
-      console.log("Speech started");
+    // Initialize voice recognition once on component mount
+    // (individual recording sessions will reinitialize as needed)
+    const setupVoiceListeners = () => {
+      Voice.onSpeechStart = () => {
+        console.log("Speech started");
+      };
+      Voice.onSpeechRecognized = () => {
+        console.log("Speech recognized");
+      };
+      Voice.onSpeechEnd = () => {
+        console.log("Speech ended");
+        setIsRecognizing(false);
+      };
+      Voice.onSpeechError = (error) => {
+        console.error("Speech error:", error);
+        setIsRecognizing(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            text: "Sorry, I couldn't understand your voice input. Please try again.",
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
+        setTimeout(
+          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+          100
+        );
+      };
+      Voice.onSpeechResults = (event) => {
+        if (event.value && event.value.length > 0) {
+          const transcribedText = event.value[0];
+          console.log("Speech results:", transcribedText);
+          // Show transcribed text in input instead of auto-sending
+          setMessage(transcribedText);
+        }
+      };
     };
-    Voice.onSpeechRecognized = () => {
-      console.log("Speech recognized");
-    };
-    Voice.onSpeechEnd = () => {
-      console.log("Speech ended");
-      setIsRecognizing(false);
-    };
-    Voice.onSpeechError = (error) => {
-      console.error("Speech error:", error);
-      setIsRecognizing(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          text: "Sorry, I couldn't understand your voice input. Please try again.",
-          isUser: false,
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
-      setTimeout(
-        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-        100
-      );
-    };
-    Voice.onSpeechResults = (event) => {
-      if (event.value && event.value.length > 0) {
-        const transcribedText = event.value[0];
-        console.log("Speech results:", transcribedText);
-        // Show transcribed text in input instead of auto-sending
-        setMessage(transcribedText);
-      }
-    };
+
+    setupVoiceListeners();
 
     // Cleanup listeners on unmount
     return () => {
@@ -338,6 +343,54 @@ export default function HomeScreen() {
           console.error("Failed to check voice recognition status:", error);
         }
       }
+
+      // Always ensure we're not already recording and reset voice recognition
+      try {
+        await Voice.destroy();
+        // Reinitialize voice recognition to reset its state
+        Voice.onSpeechStart = () => {
+          console.log("Speech started");
+        };
+        Voice.onSpeechRecognized = () => {
+          console.log("Speech recognized");
+        };
+        Voice.onSpeechEnd = () => {
+          console.log("Speech ended");
+          setIsRecognizing(false);
+        };
+        Voice.onSpeechError = (error) => {
+          console.error("Speech error:", error);
+          setIsRecognizing(false);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: prev.length + 1,
+              text: "Sorry, I couldn't understand your voice input. Please try again.",
+              isUser: false,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+          setTimeout(
+            () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+            100
+          );
+        };
+        Voice.onSpeechResults = (event) => {
+          if (event.value && event.value.length > 0) {
+            const transcribedText = event.value[0];
+            console.log("Speech results:", transcribedText);
+            setMessage(transcribedText);
+          }
+        };
+      } catch (error) {
+        console.error("Error resetting voice recognition:", error);
+      }
+
+      // Add a small delay to ensure everything is properly reset
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       setIsRecognizing(true);
       await Voice.start(language === "ar" ? "ar-SA" : "en-US");
