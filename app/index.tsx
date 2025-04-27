@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { MotiView } from "moti";
 import { Audio } from "expo-av";
+import Voice from "@react-native-voice/voice";
 
 const { width } = Dimensions.get("window");
 
@@ -192,6 +193,7 @@ export default function HomeScreen() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showMallSelector, setShowMallSelector] = useState(false);
   const [recording, setRecording] = useState(null);
+  const [isRecognizing, setIsRecognizing] = useState(false);
   const [autoPlayTTS, setAutoPlayTTS] = useState(false);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const scrollViewRef = useRef(null);
@@ -278,6 +280,54 @@ export default function HomeScreen() {
     fetchMalls();
   }, []);
 
+  // Setup Voice recognition listeners
+  useEffect(() => {
+    // Initialize voice recognition
+    Voice.onSpeechStart = () => {
+      console.log("Speech started");
+    };
+    Voice.onSpeechRecognized = () => {
+      console.log("Speech recognized");
+    };
+    Voice.onSpeechEnd = () => {
+      console.log("Speech ended");
+      setIsRecognizing(false);
+    };
+    Voice.onSpeechError = (error) => {
+      console.error("Speech error:", error);
+      setIsRecognizing(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          text: "Sorry, I couldn't understand your voice input. Please ensure your microphone is working and try again.",
+          isUser: false,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
+    };
+    Voice.onSpeechResults = (event) => {
+      if (event.value && event.value.length > 0) {
+        const transcribedText = event.value[0];
+        console.log("Speech results:", transcribedText);
+        setMessage(transcribedText);
+        handleSend(transcribedText);
+      }
+    };
+
+    // Cleanup listeners on unmount
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, []);
+
   const handleMallChange = async (mallId) => {
     setSelectedMall(mallId);
     setShowMallSelector(false);
@@ -304,6 +354,7 @@ export default function HomeScreen() {
 
   const startRecording = async () => {
     try {
+      // Request microphone permission
       if (permissionResponse.status !== "granted") {
         const response = await requestPermission();
         if (response.status !== "granted") {
@@ -312,104 +363,36 @@ export default function HomeScreen() {
         }
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
+      // On Android, we need to check for RECORD_AUDIO permission too
+      if (Platform.OS === "android") {
+        try {
+          const granted = await Voice.isRecognizing();
+          if (granted) {
+            // Already recording, stop it first
+            await Voice.stop();
+          }
+        } catch (error) {
+          console.error("Failed to check voice recognition status:", error);
+        }
+      }
 
-      const recordingOptions = {
-        android: {
-          extension: ".wav",
-          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_WAV,
-          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_PCM,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: ".wav",
-          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
-          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-      };
-      const { recording } = await Audio.Recording.createAsync(recordingOptions);
-      setRecording(recording);
+      setIsRecognizing(true);
+      await Voice.start(language === "ar" ? "ar-SA" : "en-US");
     } catch (err) {
-      console.error("Failed to start recording:", err);
-      alert("Failed to start recording. Please try again.");
+      console.error("Failed to start speech recognition:", err);
+      setIsRecognizing(false);
+      alert("Failed to start speech recognition. Please try again.");
     }
   };
 
   const stopRecording = async () => {
-    if (!recording) return;
-    setRecording(null);
+    if (!isRecognizing) return;
+
     try {
-      await recording.stopAndUnloadAsync();
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
-
-      const uri = recording.getURI();
-      if (!uri) {
-        throw new Error("No recording URI available.");
-      }
-
-      console.log("Recording URI:", uri);
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      console.log("Blob size:", blob.size, "Blob type:", blob.type);
-
-      const formData = new FormData();
-      formData.append("audio", {
-        uri,
-        type: "audio/wav",
-        name: "audio.wav",
-      });
-      formData.append("language", language);
-
-      const sttResponse = await fetch("http://192.168.1.29:8000/stt", {
-        method: "POST",
-        body: formData,
-      });
-      const sttData = await sttResponse.json();
-      if (!sttResponse.ok || !sttData.text) {
-        throw new Error(
-          sttData.detail || "No transcription returned from STT."
-        );
-      }
-      const transcribedText = sttData.text;
-      setMessage(transcribedText);
-      await handleSend(transcribedText);
+      await Voice.stop();
+      setIsRecognizing(false);
     } catch (error) {
-      console.error("STT Error:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          text: "Sorry, I couldn't understand your voice input. Please ensure your microphone is working and try again.",
-          isUser: false,
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
-      setTimeout(
-        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-        100
-      );
+      console.error("Speech recognition stop error:", error);
     }
   };
 
@@ -440,7 +423,12 @@ export default function HomeScreen() {
         await sound.loadAsync({ uri: `data:audio/mpeg;base64,${audioBase64}` });
         await sound.playAsync();
         sound.setOnPlaybackStatusUpdate((status) => {
-          if (status.didJustFinish || status.isLoaded === false) {
+          if (status.isLoaded) {
+            const loadedStatus = status;
+            if (loadedStatus.didJustFinish) {
+              sound.unloadAsync().catch(() => {});
+            }
+          } else {
             sound.unloadAsync().catch(() => {});
           }
         });
@@ -534,7 +522,12 @@ export default function HomeScreen() {
           });
           await sound.playAsync();
           sound.setOnPlaybackStatusUpdate((status) => {
-            if (status.didJustFinish || status.isLoaded === false) {
+            if (status.isLoaded) {
+              const loadedStatus = status;
+              if (loadedStatus.didJustFinish) {
+                sound.unloadAsync().catch(() => {});
+              }
+            } else {
               sound.unloadAsync().catch(() => {});
             }
           });
@@ -1020,13 +1013,23 @@ export default function HomeScreen() {
               }}
             >
               <TouchableOpacity
-                onPress={recording ? stopRecording : startRecording}
-                style={{ padding: 12 }}
+                onPress={isRecognizing ? stopRecording : startRecording}
+                style={{
+                  padding: 12,
+                  backgroundColor: isRecognizing
+                    ? currentTheme.primary
+                    : "transparent",
+                  borderRadius: isRecognizing ? 20 : 0,
+                }}
               >
                 <Ionicons
-                  name={recording ? "stop" : "mic"}
+                  name={isRecognizing ? "stop" : "mic"}
                   size={20}
-                  color={currentTheme.text}
+                  color={
+                    isRecognizing
+                      ? currentTheme.userMessageText
+                      : currentTheme.text
+                  }
                 />
               </TouchableOpacity>
               <TextInput
@@ -1037,6 +1040,7 @@ export default function HomeScreen() {
                   color: currentTheme.text,
                   fontFamily: "Poppins-Regular",
                   textAlign: language === "ar" ? "right" : "left",
+                  maxHeight: 100,
                 }}
                 placeholder={
                   language === "en"
@@ -1053,7 +1057,6 @@ export default function HomeScreen() {
                 onSubmitEditing={() => handleSend()}
                 returnKeyType="send"
                 multiline
-                maxHeight={100}
               />
               <TouchableOpacity
                 onPress={() => handleSend()}
