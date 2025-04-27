@@ -9,136 +9,89 @@ import {
   Platform,
   StatusBar,
   Dimensions,
-  Image, // Added for logo
+  Image,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Added useEffect import
 import { useRouter } from "expo-router";
-import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
-import { LinearGradient } from "expo-linear-gradient";
-import { MotiView, MotiText } from "moti";
+import { MotiView } from "moti";
+import { Audio } from "expo-av";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-// Markdown renderer component with unique keys
+// Markdown renderer component
 const MarkdownText = ({ text, style }) => {
-  const parts = [];
-  let lastIndex = 0;
-
-  const boldRegex = /\*\*(.*?)\*\*/g;
-  let boldMatch;
-  while ((boldMatch = boldRegex.exec(text)) !== null) {
-    if (boldMatch.index > lastIndex) {
-      parts.push(
-        <Text key={`plain-${boldMatch.index}`} style={style}>
-          {text.substring(lastIndex, boldMatch.index)}
+  const parts = text
+    .split(/(\*\*[^\*]+\*\*|\*[^\*]+\*)/g)
+    .map((part, index) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <Text key={index} style={[style, { fontFamily: "Poppins-Bold" }]}>
+            {part.slice(2, -2)}
+          </Text>
+        );
+      } else if (part.startsWith("*") && part.endsWith("*")) {
+        return (
+          <Text key={index} style={[style, { fontStyle: "italic" }]}>
+            {part.slice(1, -1)}
+          </Text>
+        );
+      }
+      return (
+        <Text key={index} style={style}>
+          {part}
         </Text>
       );
-    }
-    parts.push(
-      <Text
-        key={`bold-${boldMatch.index}`}
-        style={[style, { fontWeight: "bold" }]}
-      >
-        {boldMatch[1]}
-      </Text>
-    );
-    lastIndex = boldMatch.index + boldMatch[0].length;
-  }
-
-  let processedText = text;
-  if (parts.length > 0) {
-    processedText = text.substring(lastIndex);
-    lastIndex = 0;
-  }
-
-  const italicRegex = /\*(.*?)\*/g;
-  let italicMatch;
-  const italicParts = [];
-
-  while ((italicMatch = italicRegex.exec(processedText)) !== null) {
-    if (italicMatch.index > lastIndex) {
-      italicParts.push(
-        <Text key={`plain-italic-${italicMatch.index}`} style={style}>
-          {processedText.substring(lastIndex, italicMatch.index)}
-        </Text>
-      );
-    }
-    italicParts.push(
-      <Text
-        key={`italic-${italicMatch.index}`}
-        style={[style, { fontStyle: "italic" }]}
-      >
-        {italicMatch[1]}
-      </Text>
-    );
-    lastIndex = italicMatch.index + italicMatch[0].length;
-  }
-
-  if (lastIndex < processedText.length) {
-    italicParts.push(
-      <Text key={`plain-end-${lastIndex}`} style={style}>
-        {processedText.substring(lastIndex)}
-      </Text>
-    );
-  }
-
-  if (parts.length > 0) {
-    if (italicParts.length > 0) {
-      parts.push(...italicParts);
-    } else {
-      parts.push(
-        <Text key={`remaining-${lastIndex}`} style={style}>
-          {processedText}
-        </Text>
-      );
-    }
-    return <Text>{parts}</Text>;
-  }
-
-  if (italicParts.length > 0) {
-    return <Text>{italicParts}</Text>;
-  }
-
-  return <Text style={style}>{text}</Text>;
+    });
+  return <Text style={style}>{parts}</Text>;
 };
 
-// Typing Indicator Component (Using MotiView instead of Animated)
+// Typing Indicator Component
 const TypingIndicator = ({ currentTheme }) => (
-  <MotiView
-    style={{
-      flexDirection: "row",
-      alignItems: "center",
-      padding: 8,
-    }}
-  >
-    {[0, 1, 2].map((index) => (
-      <MotiView
-        key={`dot-${index}`} // Unique key for each dot
-        from={{ opacity: 0.3, translateY: 0 }}
-        animate={{ opacity: 1, translateY: -4 }}
-        transition={{
-          type: "timing",
-          duration: 300,
-          loop: true,
-          delay: index * 200,
-        }}
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: currentTheme.text,
-          marginHorizontal: 3,
-        }}
-      />
-    ))}
-  </MotiView>
+  <View style={{ flexDirection: "row", padding: 8 }}>
+    <MotiView
+      from={{ scale: 0.8, opacity: 0.4 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "timing", duration: 400, loop: true, delay: 0 }}
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: currentTheme.text,
+        marginHorizontal: 2,
+      }}
+    />
+    <MotiView
+      from={{ scale: 0.8, opacity: 0.4 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "timing", duration: 400, loop: true, delay: 100 }}
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: currentTheme.text,
+        marginHorizontal: 2,
+      }}
+    />
+    <MotiView
+      from={{ scale: 0.8, opacity: 0.4 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "timing", duration: 400, loop: true, delay: 200 }}
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: currentTheme.text,
+        marginHorizontal: 2,
+      }}
+    />
+  </View>
 );
 
-// Animated Message Component
-const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
+// Animated Message Component with TTS Play Button
+const AnimatedMessage = ({ msg, index, currentTheme, language, playTTS }) => {
   return (
     <MotiView
       from={{ opacity: 0, translateY: 20 }}
@@ -149,8 +102,17 @@ const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
         alignItems: msg.isUser ? "flex-end" : "flex-start",
         maxWidth: "85%",
         alignSelf: msg.isUser ? "flex-end" : "flex-start",
+        flexDirection: "row",
       }}
     >
+      {!msg.isUser && (
+        <TouchableOpacity
+          onPress={() => playTTS(msg.text)}
+          style={{ marginRight: 8, padding: 8 }}
+        >
+          <Ionicons name="volume-high" size={20} color={currentTheme.text} />
+        </TouchableOpacity>
+      )}
       <View
         style={{
           backgroundColor: msg.isUser
@@ -214,7 +176,6 @@ const AnimatedMessage = ({ msg, index, currentTheme, language }) => {
 };
 
 export default function HomeScreen() {
-  // State and refs
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([
     { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
@@ -230,10 +191,12 @@ export default function HomeScreen() {
   const [selectedMall, setSelectedMall] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showMallSelector, setShowMallSelector] = useState(false);
+  const [recording, setRecording] = useState(null);
+  const [autoPlayTTS, setAutoPlayTTS] = useState(false);
+  const [permissionResponse, requestPermission] = Audio.usePermissions();
   const scrollViewRef = useRef(null);
   const router = useRouter();
 
-  // Load custom fonts
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
     "Poppins-Medium": require("../assets/fonts/Poppins-Medium.ttf"),
@@ -241,7 +204,6 @@ export default function HomeScreen() {
     "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
   });
 
-  // Theme definitions with more modern color palette
   const themes = {
     light: {
       background: "#FFFFFF",
@@ -257,7 +219,7 @@ export default function HomeScreen() {
       headerBg: "#FFFFFF",
       tabActive: "#6C5CE7",
       tabInactive: "#F0F0F7",
-      inputBg: "#F5F5FA",
+      inputBg: "#F5F5F7",
     },
     dark: {
       background: "#1A1A2E",
@@ -279,102 +241,264 @@ export default function HomeScreen() {
 
   const currentTheme = isDarkMode ? themes.dark : themes.light;
 
-  // Effects
-  useEffect(() => {
-    AsyncStorage.getItem("darkMode").then((value) => {
-      setIsDarkMode(value === "true");
-    });
-
-    loadUserData();
-    fetchMalls();
-  }, []);
-
-  useEffect(() => {
-    if (isTyping) {
-      // Animation is now handled by MotiView in TypingIndicator
-    }
-  }, [isTyping]);
-
-  // Functional methods
-  const toggleDarkMode = async () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    await AsyncStorage.setItem("darkMode", newMode.toString());
-  };
-
   const loadUserData = async () => {
-    const storedLang = await AsyncStorage.getItem("language");
-    const storedConversationId = await AsyncStorage.getItem("conversation_id");
-    const storedUserId = await AsyncStorage.getItem("user_id");
-    const storedMallId = await AsyncStorage.getItem("selected_mall_id");
-    if (storedLang) setLanguage(storedLang);
-    if (storedConversationId) setConversationId(storedConversationId);
-    if (storedUserId) {
-      setUserId(storedUserId);
-      setIsTenant(storedUserId.startsWith("t_"));
+    try {
+      const userData = await AsyncStorage.getItem("user_data");
+      if (userData) {
+        const { user_id, is_tenant } = JSON.parse(userData);
+        setUserId(user_id);
+        setIsTenant(is_tenant);
+      }
+      const convId = await AsyncStorage.getItem("conversation_id");
+      if (convId) setConversationId(convId);
+      const mallId = await AsyncStorage.getItem("selected_mall");
+      if (mallId) setSelectedMall(mallId);
+    } catch (error) {
+      console.error("Error loading user data:", error);
     }
-    if (storedMallId) setSelectedMall(storedMallId); // Stored as string
   };
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.0.38:8000/malls");
+      const response = await fetch("http://192.168.1.29:8000/malls");
       const data = await response.json();
-      console.log(data);
       setMalls(data);
-      if (data.length > 0 && !selectedMall) {
-        setSelectedMall(data[0].mall_id.toString()); // Set as string
-        await AsyncStorage.setItem(
-          "selected_mall_id",
-          data[0].mall_id.toString()
-        );
+      if (!selectedMall && data.length > 0) {
+        setSelectedMall(data[0].mall_id);
+        await AsyncStorage.setItem("selected_mall", data[0].mall_id);
       }
     } catch (error) {
       console.error("Error fetching malls:", error);
     }
   };
 
+  // Initialize user data and malls on component mount
+  useEffect(() => {
+    loadUserData();
+    fetchMalls();
+  }, []);
+
   const handleMallChange = async (mallId) => {
-    const mallIdStr = mallId.toString(); // Ensure string
-    setSelectedMall(mallIdStr);
-    await AsyncStorage.setItem("selected_mall_id", mallIdStr);
+    setSelectedMall(mallId);
     setShowMallSelector(false);
-    clearChat();
+    await AsyncStorage.setItem("selected_mall", mallId);
   };
 
   const toggleLanguage = async () => {
-    const newLang = language === "en" ? "ar" : "en";
-    setLanguage(newLang);
-    await AsyncStorage.setItem("language", newLang);
+    const newLanguage = language === "en" ? "ar" : "en";
+    setLanguage(newLanguage);
+    await AsyncStorage.setItem("language", newLanguage);
   };
 
-  const handleSend = async () => {
-    if (message.trim() === "" || !selectedMall) return;
+  const toggleDarkMode = async () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    await AsyncStorage.setItem("darkMode", newMode.toString());
+  };
+
+  const toggleAutoPlayTTS = async () => {
+    const newValue = !autoPlayTTS;
+    setAutoPlayTTS(newValue);
+    await AsyncStorage.setItem("autoPlayTTS", newValue.toString());
+  };
+
+  const startRecording = async () => {
+    try {
+      if (permissionResponse.status !== "granted") {
+        const response = await requestPermission();
+        if (response.status !== "granted") {
+          alert("Microphone permission is required for voice input.");
+          return;
+        }
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+
+      const recordingOptions = {
+        android: {
+          extension: ".wav",
+          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_WAV,
+          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_PCM,
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: ".wav",
+          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
+          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 128000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+      };
+      const { recording } = await Audio.Recording.createAsync(recordingOptions);
+      setRecording(recording);
+    } catch (err) {
+      console.error("Failed to start recording:", err);
+      alert("Failed to start recording. Please try again.");
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+    setRecording(null);
+    try {
+      await recording.stopAndUnloadAsync();
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+
+      const uri = recording.getURI();
+      if (!uri) {
+        throw new Error("No recording URI available.");
+      }
+
+      console.log("Recording URI:", uri);
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      console.log("Blob size:", blob.size, "Blob type:", blob.type);
+
+      const formData = new FormData();
+      formData.append("audio", {
+        uri,
+        type: "audio/wav",
+        name: "audio.wav",
+      });
+      formData.append("language", language);
+
+      const sttResponse = await fetch("http://192.168.1.29:8000/stt", {
+        method: "POST",
+        body: formData,
+      });
+      const sttData = await sttResponse.json();
+      if (!sttResponse.ok || !sttData.text) {
+        throw new Error(
+          sttData.detail || "No transcription returned from STT."
+        );
+      }
+      const transcribedText = sttData.text;
+      setMessage(transcribedText);
+      await handleSend(transcribedText);
+    } catch (error) {
+      console.error("STT Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          text: "Sorry, I couldn't understand your voice input. Please ensure your microphone is working and try again.",
+          isUser: false,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
+    }
+  };
+
+  const playTTS = async (text) => {
+    if (!text) return;
+    try {
+      const response = await fetch("http://192.168.1.29:8000/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, language }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `TTS request failed: ${errorData.detail || response.statusText}`
+        );
+      }
+      const data = await response.json();
+      if (!data.audio_base64) {
+        throw new Error("No audio_base64 data received from TTS endpoint.");
+      }
+      const audioBase64 = data.audio_base64;
+      if (!/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
+        throw new Error("Invalid base64 string received.");
+      }
+      const sound = new Audio.Sound();
+      try {
+        await sound.loadAsync({ uri: `data:audio/mpeg;base64,${audioBase64}` });
+        await sound.playAsync();
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status.didJustFinish || status.isLoaded === false) {
+            sound.unloadAsync().catch(() => {});
+          }
+        });
+      } catch (error) {
+        sound.unloadAsync().catch(() => {});
+        throw error;
+      }
+    } catch (error) {
+      console.error("TTS Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          text: "Sorry, I couldn't play the audio response. Please try again.",
+          isUser: false,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        },
+      ]);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
+    }
+  };
+
+  const handleSend = async (textOverride = null) => {
+    const inputText =
+      textOverride || (typeof message === "string" ? message.trim() : "");
+    if (!inputText || !selectedMall) return;
 
     const userMessage = {
       id: messages.length + 1,
-      text: message,
+      text: inputText,
       isUser: true,
       timestamp: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
     };
-    setMessages([...messages, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setMessage("");
     setIsTyping(true);
 
     try {
       const backendUrl =
         activeTab === "chat"
-          ? "http://192.168.0.38:8000/chat"
-          : "http://192.168.0.38:8000/tenant/update";
+          ? "http://192.168.1.29:8000/chat"
+          : "http://192.168.1.29:8000/tenant/update";
       const requestBody = {
         text: userMessage.text,
         user_id: userId || undefined,
         conversation_id: conversationId,
         language: language,
-        mall_id: parseInt(selectedMall), // Convert to int for backend
+        mall_id: parseInt(selectedMall),
+        include_tts: autoPlayTTS,
       };
 
       const response = await fetch(backendUrl, {
@@ -391,7 +515,7 @@ export default function HomeScreen() {
       const data = await response.json();
       const botResponse = {
         id: messages.length + 2,
-        text: data.message,
+        text: data.message || "No response received.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -401,7 +525,37 @@ export default function HomeScreen() {
       setMessages((prev) => [...prev, botResponse]);
       setConversationId(data.conversation_id);
       await AsyncStorage.setItem("conversation_id", data.conversation_id);
+
+      if (autoPlayTTS && data.audio_base64) {
+        try {
+          const sound = new Audio.Sound();
+          await sound.loadAsync({
+            uri: `data:audio/mpeg;base64,${data.audio_base64}`,
+          });
+          await sound.playAsync();
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if (status.didJustFinish || status.isLoaded === false) {
+              sound.unloadAsync().catch(() => {});
+            }
+          });
+        } catch (error) {
+          console.error("Auto-play TTS Error:", error);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: prev.length + 1,
+              text: "Sorry, I couldn't play the audio response automatically.",
+              isUser: false,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+        }
+      }
     } catch (error) {
+      console.error("Chat Error:", error);
       const errorMessage = {
         id: messages.length + 2,
         text:
@@ -429,37 +583,46 @@ export default function HomeScreen() {
       { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
       { id: 2, text: "How can I help you today?", isUser: false },
     ]);
+    setConversationId(null);
+    await AsyncStorage.removeItem("conversation_id");
   };
 
   const newSession = async () => {
-    setConversationId(null);
     await AsyncStorage.removeItem("conversation_id");
-    clearChat();
+    setConversationId(null);
+    setMessages([
+      { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
+      { id: 2, text: "How can I help you today?", isUser: false },
+    ]);
   };
 
   const quickPrompts = {
     en: {
       chat: [
-        "Where is Trendy Threads?",
-        "What offers are available?",
-        "Check my loyalty points",
+        "What's the nearest mall?",
+        "Show me dining options",
+        "Any events this weekend?",
+        "Find a clothing store",
       ],
-      update: [
-        "Add 20% off on shoes",
-        "Update store location to Level 2",
-        "Show my store details",
+      tenant: [
+        "Update store hours",
+        "Change contact info",
+        "Add a promotion",
+        "Update store description",
       ],
     },
     ar: {
       chat: [
-        "أين تقع تريندي ثريدز؟",
-        "ما هي العروض المتوفرة؟",
-        "تحقق من نقاط ولائي",
+        "ما هو أقرب مركز تجاري؟",
+        "أرني خيارات الطعام",
+        "هل هناك فعاليات هذا الأسبوع؟",
+        "ابحث عن متجر ملابس",
       ],
-      update: [
-        "أضف خصم 20% على الأحذية",
-        "تحديث موقع المتجر إلى الطابق الثاني",
-        "عرض تفاصيل متجري",
+      tenant: [
+        "تحديث ساعات العمل",
+        "تغيير معلومات الاتصال",
+        "إضافة عرض ترويجي",
+        "تحديث وصف المتجر",
       ],
     },
   };
@@ -484,11 +647,12 @@ export default function HomeScreen() {
   }
 
   const getCurrentMallName = () => {
-    if (!selectedMall || malls.length === 0) return "Select Mall";
-    const currentMall = malls.find(
-      (mall) => mall.mall_id.toString() === selectedMall // String comparison
-    );
-    return currentMall ? currentMall.name_en : "Select Mall";
+    const mall = malls.find((m) => m.mall_id.toString() === selectedMall);
+    return mall
+      ? mall.name_en
+      : language === "en"
+      ? "Select a mall"
+      : "اختر مركزًا تجاريًا";
   };
 
   return (
@@ -529,11 +693,7 @@ export default function HomeScreen() {
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Image
                 source={require("../assets/logo.png")}
-                style={{
-                  width: 100,
-                  height: 30,
-                  resizeMode: "contain",
-                }}
+                style={{ width: 100, height: 30, resizeMode: "contain" }}
               />
             </View>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -601,7 +761,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Mall Selection Button */}
+          {/* Mall Selection */}
           <TouchableOpacity
             onPress={() => setShowMallSelector(!showMallSelector)}
             style={{
@@ -638,7 +798,6 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
 
-          {/* Mall Selection Dropdown */}
           {showMallSelector && (
             <MotiView
               from={{ opacity: 0, height: 0 }}
@@ -654,7 +813,7 @@ export default function HomeScreen() {
             >
               {malls.map((mall) => (
                 <TouchableOpacity
-                  key={mall.mall_id} // Unique key from mall_id
+                  key={mall.mall_id}
                   onPress={() => handleMallChange(mall.mall_id)}
                   style={{
                     paddingVertical: 12,
@@ -694,77 +853,60 @@ export default function HomeScreen() {
             <View
               style={{
                 flexDirection: "row",
-                justifyContent: "space-around",
-                paddingVertical: 15,
-                paddingHorizontal: 20,
-                backgroundColor: currentTheme.background,
+                justifyContent: "center",
+                paddingVertical: 10,
                 borderBottomWidth: 1,
                 borderBottomColor: currentTheme.border,
+                backgroundColor: currentTheme.background,
               }}
             >
               <TouchableOpacity
                 onPress={() => setActiveTab("chat")}
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: 10,
                   backgroundColor:
                     activeTab === "chat"
                       ? currentTheme.tabActive
                       : currentTheme.tabInactive,
-                  borderTopLeftRadius: 20,
-                  borderBottomLeftRadius: 20,
+                  borderRadius: 20,
+                  marginHorizontal: 5,
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
                 }}
               >
-                <Ionicons
-                  name="chatbubble-outline"
-                  size={18}
-                  color={activeTab === "chat" ? "#FFFFFF" : currentTheme.text}
-                  style={{ marginRight: 8 }}
-                />
                 <Text
                   style={{
                     color: activeTab === "chat" ? "#FFFFFF" : currentTheme.text,
                     fontFamily: "Poppins-Medium",
-                    fontSize: 15,
+                    fontSize: 14,
                   }}
                 >
-                  {language === "en" ? "Chat" : "دردشة"}
+                  {language === "en" ? "Chat" : "الدردشة"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => setActiveTab("update")}
+                onPress={() => setActiveTab("tenant")}
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: 10,
                   backgroundColor:
-                    activeTab === "update"
+                    activeTab === "tenant"
                       ? currentTheme.tabActive
                       : currentTheme.tabInactive,
-                  borderTopRightRadius: 20,
-                  borderBottomRightRadius: 20,
+                  borderRadius: 20,
+                  marginHorizontal: 5,
                   alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
                 }}
               >
-                <Feather
-                  name="edit"
-                  size={18}
-                  color={activeTab === "update" ? "#FFFFFF" : currentTheme.text}
-                  style={{ marginRight: 8 }}
-                />
                 <Text
                   style={{
                     color:
-                      activeTab === "update" ? "#FFFFFF" : currentTheme.text,
+                      activeTab === "tenant" ? "#FFFFFF" : currentTheme.text,
                     fontFamily: "Poppins-Medium",
-                    fontSize: 15,
+                    fontSize: 14,
                   }}
                 >
-                  {language === "en" ? "Update" : "تحديث"}
+                  {language === "en" ? "Store Updates" : "تحديثات المتجر"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -799,8 +941,8 @@ export default function HomeScreen() {
                 <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                   {quickPrompts[language][activeTab].map((prompt, index) => (
                     <TouchableOpacity
-                      key={`prompt-${index}`} // Unique key for prompts
-                      onPress={() => setMessage(prompt)}
+                      key={`prompt-${index}`}
+                      onPress={() => handleSend(prompt)}
                       style={{
                         backgroundColor: currentTheme.secondary,
                         borderRadius: 20,
@@ -834,6 +976,7 @@ export default function HomeScreen() {
                 index={index}
                 currentTheme={currentTheme}
                 language={language}
+                playTTS={playTTS}
               />
             ))}
 
@@ -856,7 +999,7 @@ export default function HomeScreen() {
             )}
           </ScrollView>
 
-          {/* Input Area */}
+          {/* Input Area with STT and TTS Controls */}
           <View
             style={{
               paddingHorizontal: 15,
@@ -876,6 +1019,16 @@ export default function HomeScreen() {
                 elevation: 2,
               }}
             >
+              <TouchableOpacity
+                onPress={recording ? stopRecording : startRecording}
+                style={{ padding: 12 }}
+              >
+                <Ionicons
+                  name={recording ? "stop" : "mic"}
+                  size={20}
+                  color={currentTheme.text}
+                />
+              </TouchableOpacity>
               <TextInput
                 style={{
                   flex: 1,
@@ -896,18 +1049,18 @@ export default function HomeScreen() {
                 }
                 placeholderTextColor={currentTheme.placeholder}
                 value={message}
-                onChangeText={setMessage}
-                onSubmitEditing={handleSend}
+                onChangeText={(text) => setMessage(text || "")}
+                onSubmitEditing={() => handleSend()}
                 returnKeyType="send"
                 multiline
                 maxHeight={100}
               />
               <TouchableOpacity
-                onPress={handleSend}
-                disabled={!message.trim() || !selectedMall || isTyping}
+                onPress={() => handleSend()}
+                disabled={!message?.trim() || !selectedMall || isTyping}
                 style={{
                   backgroundColor:
-                    message.trim() && selectedMall
+                    message?.trim() && selectedMall
                       ? currentTheme.primary
                       : currentTheme.secondary,
                   borderRadius: 25,
@@ -927,6 +1080,7 @@ export default function HomeScreen() {
                 flexDirection: "row",
                 justifyContent: "space-between",
                 marginTop: 10,
+                alignItems: "center",
               }}
             >
               <TouchableOpacity
@@ -945,6 +1099,26 @@ export default function HomeScreen() {
                   }}
                 >
                   {language === "en" ? "Clear Chat" : "مسح الدردشة"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={toggleAutoPlayTTS}
+                style={{
+                  paddingHorizontal: 15,
+                  paddingVertical: 8,
+                  backgroundColor: autoPlayTTS
+                    ? currentTheme.primary
+                    : currentTheme.secondary,
+                  borderRadius: 20,
+                }}
+              >
+                <Text
+                  style={{
+                    color: autoPlayTTS ? "#FFFFFF" : currentTheme.text,
+                    fontFamily: "Poppins-Medium",
+                  }}
+                >
+                  {language === "en" ? "Auto-Play TTS" : "تشغيل تلقائي TTS"}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
