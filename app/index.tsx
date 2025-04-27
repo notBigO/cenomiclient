@@ -164,10 +164,7 @@ const AnimatedMessage = ({ msg, index, language }) => {
 
 export default function HomeScreen() {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
-    { id: 2, text: "How can I help you today?", isUser: false },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [language, setLanguage] = useState("en");
   const [conversationId, setConversationId] = useState(null);
@@ -179,6 +176,26 @@ export default function HomeScreen() {
   const [autoPlayTTS, setAutoPlayTTS] = useState(false);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const scrollViewRef = useRef(null);
+
+  // Use a function to set welcome messages based on language
+  const getWelcomeMessages = (lang) => {
+    if (lang === "ar") {
+      return [
+        { id: 1, text: "مرحباً، أنا سينومي AI! 👋", isUser: false },
+        { id: 2, text: "كيف يمكنني مساعدتك اليوم؟", isUser: false },
+      ];
+    } else {
+      return [
+        { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
+        { id: 2, text: "How can I help you today?", isUser: false },
+      ];
+    }
+  };
+
+  // Set initial messages
+  useEffect(() => {
+    setMessages(getWelcomeMessages(language));
+  }, [language]);
 
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
@@ -319,7 +336,11 @@ export default function HomeScreen() {
       if (permissionResponse.status !== "granted") {
         const response = await requestPermission();
         if (response.status !== "granted") {
-          alert("Microphone permission is required for voice input.");
+          alert(
+            language === "ar"
+              ? "يلزم إذن الميكروفون لإدخال الصوت."
+              : "Microphone permission is required for voice input."
+          );
           return;
         }
       }
@@ -358,7 +379,10 @@ export default function HomeScreen() {
             ...prev,
             {
               id: prev.length + 1,
-              text: "Sorry, I couldn't understand your voice input. Please try again.",
+              text:
+                language === "ar"
+                  ? "عذراً، لم أتمكن من فهم المدخلات الصوتية. يرجى المحاولة مرة أخرى."
+                  : "Sorry, I couldn't understand your voice input. Please try again.",
               isUser: false,
               timestamp: new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -386,11 +410,23 @@ export default function HomeScreen() {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       setIsRecognizing(true);
-      await Voice.start(language === "ar" ? "ar-SA" : "en-US");
+
+      // Configure language for speech recognition
+      // Arabic language code is 'ar-SA' for Saudi Arabia, adjust as needed
+      const languageOption = language === "ar" ? "ar-SA" : "en-US";
+      console.log(
+        `Starting voice recognition with language: ${languageOption}`
+      );
+
+      await Voice.start(languageOption);
     } catch (err) {
       console.error("Failed to start speech recognition:", err);
       setIsRecognizing(false);
-      alert("Failed to start speech recognition. Please try again.");
+      alert(
+        language === "ar"
+          ? "فشل بدء التعرف على الكلام. يرجى المحاولة مرة أخرى."
+          : "Failed to start speech recognition. Please try again."
+      );
     }
   };
 
@@ -451,7 +487,10 @@ export default function HomeScreen() {
         ...prev,
         {
           id: prev.length + 1,
-          text: "Sorry, I couldn't play the audio response. Please try again.",
+          text:
+            language === "ar"
+              ? "عذراً، لم أتمكن من تشغيل الاستجابة الصوتية. يرجى المحاولة مرة أخرى."
+              : "Sorry, I couldn't play the audio response. Please try again.",
           isUser: false,
           timestamp: new Date().toLocaleTimeString([], {
             hour: "2-digit",
@@ -544,7 +583,10 @@ export default function HomeScreen() {
       console.error("Chat Error:", error);
       const errorMessage = {
         id: messages.length + 2,
-        text: "Sorry, something went wrong. Please try again later.",
+        text:
+          language === "ar"
+            ? "عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً."
+            : "Sorry, something went wrong. Please try again later.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -562,10 +604,7 @@ export default function HomeScreen() {
   };
 
   const clearChat = async () => {
-    setMessages([
-      { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
-      { id: 2, text: "How can I help you today?", isUser: false },
-    ]);
+    setMessages(getWelcomeMessages(language));
     setConversationId(null);
     await AsyncStorage.removeItem("conversation_id");
   };
@@ -921,6 +960,7 @@ export default function HomeScreen() {
                   color: theme.text,
                   fontFamily: "Poppins-Regular",
                   textAlign: language === "ar" ? "right" : "left",
+                  writingDirection: language === "ar" ? "rtl" : "ltr",
                   maxHeight: 100,
                   fontSize: isSmallScreen ? 13 : 15,
                 }}
