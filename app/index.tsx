@@ -84,8 +84,15 @@ const TypingIndicator = () => (
   </View>
 );
 
-// Animated Message Component (removed TTS Play Button)
-const AnimatedMessage = ({ msg, index, language }) => {
+// Animated Message Component with TTS Play/Stop Buttons
+const AnimatedMessage = ({
+  msg,
+  index,
+  language,
+  playingId,
+  onPlay,
+  onStop,
+}) => {
   return (
     <MotiView
       from={{ opacity: 0, translateY: 10 }}
@@ -118,8 +125,47 @@ const AnimatedMessage = ({ msg, index, language }) => {
           paddingHorizontal: 16,
           borderTopLeftRadius: msg.isUser ? 20 : 6,
           borderTopRightRadius: msg.isUser ? 6 : 20,
+          position: "relative",
         }}
       >
+        {!msg.isUser && (
+          <View
+            style={{
+              position: "absolute",
+              right: 8,
+              top: 8,
+              flexDirection: "row",
+              zIndex: 10,
+            }}
+          >
+            {playingId === msg.id ? (
+              <TouchableOpacity
+                onPress={() => onStop()}
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 4,
+                  backgroundColor: "rgba(255,255,255,0.8)",
+                  borderRadius: 12,
+                }}
+              >
+                <Ionicons name="stop" size={16} color="#6C5CE7" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => onPlay(msg.text, msg.id)}
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 4,
+                  backgroundColor: "rgba(255,255,255,0.8)",
+                  borderRadius: 12,
+                }}
+              >
+                <Ionicons name="volume-medium" size={16} color="#6C5CE7" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {msg.isUser ? (
           <Text
             style={{
@@ -133,18 +179,21 @@ const AnimatedMessage = ({ msg, index, language }) => {
             {msg.text}
           </Text>
         ) : (
-          <MarkdownText
-            text={msg.text}
-            style={{
-              color: "#303342",
-              fontFamily: "Poppins-Regular",
-              fontSize: 15,
-              lineHeight: 22,
-              textAlign: language === "ar" ? "right" : "left",
-            }}
-          />
+          <View style={{ paddingRight: !msg.isUser ? 28 : 0 }}>
+            <MarkdownText
+              text={msg.text}
+              style={{
+                color: "#303342",
+                fontFamily: "Poppins-Regular",
+                fontSize: 15,
+                lineHeight: 22,
+                textAlign: language === "ar" ? "right" : "left",
+              }}
+            />
+          </View>
         )}
       </MotiView>
+
       {msg.timestamp && (
         <Text
           style={{
@@ -153,6 +202,7 @@ const AnimatedMessage = ({ msg, index, language }) => {
             marginTop: 4,
             marginHorizontal: 4,
             fontFamily: "Poppins-Regular",
+            alignSelf: msg.isUser ? "flex-end" : "flex-start",
           }}
         >
           {msg.timestamp}
@@ -176,6 +226,10 @@ export default function HomeScreen() {
   const [autoPlayTTS, setAutoPlayTTS] = useState(false);
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const scrollViewRef = useRef(null);
+  // Add a reference to the currently playing sound
+  const activeSoundRef = useRef(null);
+  // Track which message is currently playing
+  const [playingMessageId, setPlayingMessageId] = useState(null);
 
   // Use a function to set welcome messages based on language
   const getWelcomeMessages = (lang) => {
@@ -441,8 +495,12 @@ export default function HomeScreen() {
     }
   };
 
-  const playTTS = async (text) => {
+  const playTTS = async (text, messageId = null) => {
     if (!text) return;
+
+    // Stop any current playback first
+    await stopTTS();
+
     try {
       const response = await fetch("http://192.168.1.29:8000/tts", {
         method: "POST",
@@ -463,7 +521,14 @@ export default function HomeScreen() {
       if (!/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
         throw new Error("Invalid base64 string received.");
       }
+
       const sound = new Audio.Sound();
+      activeSoundRef.current = sound;
+
+      if (messageId) {
+        setPlayingMessageId(messageId);
+      }
+
       try {
         await sound.loadAsync({ uri: `data:audio/mpeg;base64,${audioBase64}` });
         await sound.playAsync();
@@ -471,18 +536,25 @@ export default function HomeScreen() {
           if (status.isLoaded) {
             const loadedStatus = status;
             if (loadedStatus.didJustFinish) {
+              setPlayingMessageId(null);
               sound.unloadAsync().catch(() => {});
+              activeSoundRef.current = null;
             }
           } else {
+            setPlayingMessageId(null);
             sound.unloadAsync().catch(() => {});
+            activeSoundRef.current = null;
           }
         });
       } catch (error) {
+        setPlayingMessageId(null);
         sound.unloadAsync().catch(() => {});
+        activeSoundRef.current = null;
         throw error;
       }
     } catch (error) {
       console.error("TTS Error:", error);
+      setPlayingMessageId(null);
       setMessages((prev) => [
         ...prev,
         {
@@ -560,7 +632,13 @@ export default function HomeScreen() {
 
       if (autoPlayTTS && data.audio_base64) {
         try {
+          // Stop any current playback first
+          await stopTTS();
+
           const sound = new Audio.Sound();
+          activeSoundRef.current = sound;
+          setPlayingMessageId(botResponse.id);
+
           await sound.loadAsync({
             uri: `data:audio/mpeg;base64,${data.audio_base64}`,
           });
@@ -569,14 +647,19 @@ export default function HomeScreen() {
             if (status.isLoaded) {
               const loadedStatus = status;
               if (loadedStatus.didJustFinish) {
+                setPlayingMessageId(null);
                 sound.unloadAsync().catch(() => {});
+                activeSoundRef.current = null;
               }
             } else {
+              setPlayingMessageId(null);
               sound.unloadAsync().catch(() => {});
+              activeSoundRef.current = null;
             }
           });
         } catch (error) {
           console.error("Auto-play TTS Error:", error);
+          setPlayingMessageId(null);
         }
       }
     } catch (error) {
@@ -648,6 +731,20 @@ export default function HomeScreen() {
       : language === "en"
       ? "Select a mall"
       : "اختر مركزًا تجاريًا";
+  };
+
+  // Function to stop any currently playing TTS
+  const stopTTS = async () => {
+    if (activeSoundRef.current) {
+      try {
+        await activeSoundRef.current.stopAsync();
+        await activeSoundRef.current.unloadAsync();
+        activeSoundRef.current = null;
+        setPlayingMessageId(null);
+      } catch (error) {
+        console.error("Error stopping playback:", error);
+      }
+    }
   };
 
   return (
@@ -894,6 +991,9 @@ export default function HomeScreen() {
                 msg={msg}
                 index={index}
                 language={language}
+                playingId={playingMessageId}
+                onPlay={(text, id) => playTTS(text, id)}
+                onStop={stopTTS}
               />
             ))}
 
@@ -976,18 +1076,36 @@ export default function HomeScreen() {
                 returnKeyType="send"
                 multiline
               />
-              <TouchableOpacity
-                onPress={toggleAutoPlayTTS}
-                style={{
-                  padding: 12,
-                }}
-              >
-                <Ionicons
-                  name={autoPlayTTS ? "volume-high" : "volume-mute"}
-                  size={20}
-                  color={autoPlayTTS ? theme.primary : theme.placeholder}
-                />
-              </TouchableOpacity>
+              {playingMessageId ? (
+                <TouchableOpacity
+                  onPress={stopTTS}
+                  style={{
+                    padding: 12,
+                    backgroundColor: theme.primary + "20", // Semi-transparent
+                    borderRadius: 20,
+                    marginRight: 5,
+                  }}
+                >
+                  <Ionicons
+                    name="stop-circle"
+                    size={20}
+                    color={theme.primary}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={toggleAutoPlayTTS}
+                  style={{
+                    padding: 12,
+                  }}
+                >
+                  <Ionicons
+                    name={autoPlayTTS ? "volume-high" : "volume-mute"}
+                    size={20}
+                    color={autoPlayTTS ? theme.primary : theme.placeholder}
+                  />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 onPress={() => handleSend()}
                 disabled={!message?.trim() || !selectedMall || isTyping}
