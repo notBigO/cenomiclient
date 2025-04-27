@@ -50,41 +50,35 @@ const MarkdownText = ({ text, style }) => {
 
 // Typing Indicator Component
 const TypingIndicator = () => (
-  <View style={{ flexDirection: "row", padding: 8 }}>
-    <MotiView
-      from={{ scale: 0.8, opacity: 0.4 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "timing", duration: 400, loop: true, delay: 0 }}
+  <View style={{ flexDirection: "row", padding: 10, alignItems: "center" }}>
+    <View
       style={{
         width: 8,
         height: 8,
         borderRadius: 4,
         backgroundColor: "#303342",
         marginHorizontal: 2,
+        opacity: 0.4,
       }}
     />
-    <MotiView
-      from={{ scale: 0.8, opacity: 0.4 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "timing", duration: 400, loop: true, delay: 100 }}
+    <View
       style={{
         width: 8,
         height: 8,
         borderRadius: 4,
         backgroundColor: "#303342",
         marginHorizontal: 2,
+        opacity: 0.7,
       }}
     />
-    <MotiView
-      from={{ scale: 0.8, opacity: 0.4 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "timing", duration: 400, loop: true, delay: 200 }}
+    <View
       style={{
         width: 8,
         height: 8,
         borderRadius: 4,
         backgroundColor: "#303342",
         marginHorizontal: 2,
+        opacity: 1,
       }}
     />
   </View>
@@ -94,9 +88,13 @@ const TypingIndicator = () => (
 const AnimatedMessage = ({ msg, index, language }) => {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: 20 }}
+      from={{ opacity: 0, translateY: 10 }}
       animate={{ opacity: 1, translateY: 0 }}
-      transition={{ type: "timing", duration: 300, delay: index * 50 }}
+      transition={{
+        type: "timing",
+        duration: 250,
+        delay: index > 10 ? 0 : index * 30,
+      }}
       style={{
         marginBottom: 15,
         alignItems: msg.isUser ? "flex-end" : "flex-start",
@@ -105,9 +103,9 @@ const AnimatedMessage = ({ msg, index, language }) => {
       }}
     >
       <MotiView
-        from={{ scale: 0.95 }}
+        from={{ scale: 0.98 }}
         animate={{ scale: 1 }}
-        transition={{ type: "spring", damping: 15 }}
+        transition={{ type: "timing", duration: 200 }}
         style={{
           backgroundColor: msg.isUser
             ? "#6C5CE7"
@@ -120,11 +118,6 @@ const AnimatedMessage = ({ msg, index, language }) => {
           paddingHorizontal: 16,
           borderTopLeftRadius: msg.isUser ? 20 : 6,
           borderTopRightRadius: msg.isUser ? 6 : 20,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 2,
-          elevation: 1,
         }}
       >
         {msg.isUser ? (
@@ -626,12 +619,7 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <MotiView
-          from={{ opacity: 0, translateY: -20 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: "timing", duration: 500 }}
-          style={{ flex: 1 }}
-        >
+        <View style={{ flex: 1 }}>
           {/* Header */}
           <View
             style={{
@@ -802,9 +790,9 @@ export default function HomeScreen() {
           >
             {messages.length === 2 && (
               <MotiView
-                from={{ opacity: 0, scale: 0.9 }}
+                from={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "spring", damping: 15, delay: 300 }}
+                transition={{ type: "timing", duration: 250 }}
                 style={{ marginBottom: 25 }}
               >
                 <Text
@@ -825,12 +813,12 @@ export default function HomeScreen() {
                   {quickPrompts[language].map((prompt, index) => (
                     <MotiView
                       key={`prompt-${index}`}
-                      from={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
+                      from={{ opacity: 0, translateX: -5 }}
+                      animate={{ opacity: 1, translateX: 0 }}
                       transition={{
-                        type: "spring",
-                        damping: 15,
-                        delay: 400 + index * 50,
+                        type: "timing",
+                        duration: 200,
+                        delay: 200 + index * 50,
                       }}
                     >
                       <TouchableOpacity
@@ -871,10 +859,7 @@ export default function HomeScreen() {
             ))}
 
             {isTyping && (
-              <MotiView
-                from={{ opacity: 0, translateY: 10 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ type: "spring", damping: 15 }}
+              <View
                 style={{
                   marginBottom: 15,
                   alignItems: "flex-start",
@@ -886,15 +871,15 @@ export default function HomeScreen() {
                 }}
               >
                 <TypingIndicator />
-              </MotiView>
+              </View>
             )}
           </ScrollView>
 
           {/* Input Area with STT Controls */}
           <MotiView
-            from={{ translateY: 50, opacity: 0 }}
+            from={{ translateY: 20, opacity: 0 }}
             animate={{ translateY: 0, opacity: 1 }}
-            transition={{ type: "spring", damping: 18 }}
+            transition={{ type: "timing", duration: 300 }}
             style={{
               paddingHorizontal: 15,
               paddingVertical: 10,
@@ -910,11 +895,6 @@ export default function HomeScreen() {
                 backgroundColor: theme.inputBg,
                 borderRadius: 25,
                 overflow: "hidden",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.1,
-                shadowRadius: 2,
-                elevation: 2,
               }}
             >
               <TouchableOpacity
@@ -1019,7 +999,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </MotiView>
           </MotiView>
-        </MotiView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
