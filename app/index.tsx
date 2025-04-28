@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,16 +11,33 @@ import {
   StatusBar,
   Dimensions,
   Image,
+  Linking,
+  Modal,
+  ActivityIndicator,
+  ViewStyle,
+  StyleSheet,
+  PanResponder,
+  Animated
 } from "react-native";
-import { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { MotiView } from "moti";
 import { Audio } from "expo-av";
 import Voice from "@react-native-voice/voice";
+import Reanimated, { 
+  useAnimatedGestureHandler, 
+  useAnimatedStyle, 
+  useSharedValue, 
+  withTiming 
+} from "react-native-reanimated";
+import { 
+  PinchGestureHandler, 
+  TapGestureHandler, 
+  State 
+} from "react-native-gesture-handler";
 
-const { width } = Dimensions.get("window");
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // Markdown renderer component
 const MarkdownText = ({ text, style }) => {
@@ -84,8 +102,28 @@ const TypingIndicator = () => (
   </View>
 );
 
-// Animated Message Component with TTS Play/Stop Buttons
-const AnimatedMessage = ({
+// Fix the type error by defining props interface
+// Animated Message Component Props Interface
+interface AnimatedMessageProps {
+  msg: {
+    id: number;
+    text: string;
+    isUser: boolean;
+    timestamp?: string;
+    images?: Array<{
+      url: string;
+      alt_text?: string;
+    }>;
+  };
+  index: number;
+  language: string;
+  playingId: number | null;
+  onPlay: (text: string, id: number) => void;
+  onStop: () => void;
+}
+
+// Modified AnimatedMessage component with proper typing
+const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   msg,
   index,
   language,
@@ -93,6 +131,154 @@ const AnimatedMessage = ({
   onPlay,
   onStop,
 }) => {
+  // State for tracking images loading and errors
+  const [imageLoadError, setImageLoadError] = useState({});
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  
+  // Function to handle image load errors
+  const handleImageError = (imageIndex) => {
+    console.error(`Failed to load image at index ${imageIndex}`);
+    setImageLoadError(prev => ({...prev, [imageIndex]: true}));
+  };
+  
+  // Function to open image viewer modal
+  const handleImagePress = (imageUrl) => {
+    setSelectedImage(imageUrl);
+    setModalVisible(true);
+  };
+  
+  // Close the modal
+  const handleCloseModal = () => {
+    setModalVisible(false);
+  };
+  
+  // Image Grid Layout function based on number of images
+  const renderImageGrid = (images) => {
+    if (!Array.isArray(images) || images.length === 0) return null;
+    
+    // Function to determine grid layout based on image count
+    const getGridStyle = (count: number, index: number): ViewStyle => {
+      if (count === 1) {
+        return {
+          width: '100%',
+          aspectRatio: 16/9,
+          borderRadius: 12,
+          marginBottom: 0
+        };
+      } else if (count === 2) {
+        return {
+          width: '49%',
+          aspectRatio: 1,
+          borderRadius: 10
+        };
+      } else if (count === 3) {
+        if (index === 0) {
+          return {
+            width: '100%', 
+            aspectRatio: 16/9,
+            borderRadius: 10,
+            marginBottom: 4
+          };
+        } else {
+          return {
+            width: '49%', 
+            aspectRatio: 1,
+            borderRadius: 10
+          };
+        }
+      } else {
+        // 4 or more images
+        return {
+          width: '49%',
+          aspectRatio: 1,
+          borderRadius: 10,
+          marginBottom: index < 2 ? 4 : 0
+        };
+      }
+    };
+    
+    return (
+      <View style={{
+        marginTop: 12,
+        marginBottom: 5
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between'
+        }}>
+          {/* Display up to 4 images, with a +X indicator if there are more */}
+          {images.slice(0, 4).map((image, i) => {
+            if (!image || !image.url) {
+              return null;
+            }
+
+            const isLastVisible = i === 3 && images.length > 4;
+            const remainingCount = images.length - 4;
+            
+            return (
+              <TouchableOpacity
+                key={i}
+                style={{
+                  ...getGridStyle(Math.min(images.length, 4), i),
+                  position: 'relative',
+                  overflow: 'hidden',
+                  backgroundColor: '#f0f0f0',
+                }}
+                onPress={() => handleImagePress(image.url)}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={{ uri: image.url }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                  }}
+                  onError={() => handleImageError(i)}
+                />
+                
+                {/* Overlay for showing remaining count */}
+                {isLastVisible && (
+                  <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{
+                      color: 'white',
+                      fontFamily: 'Poppins-SemiBold',
+                      fontSize: 20
+                    }}>
+                      +{remainingCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        
+        {/* Show caption if any of the images has alt_text */}
+        {images.some(img => img?.alt_text) && (
+          <Text style={{
+            fontSize: 12,
+            color: '#666',
+            marginTop: 6,
+            fontStyle: 'italic'
+          }}>
+            {images[0]?.alt_text || ''}
+          </Text>
+        )}
+      </View>
+    );
+  };
+  
   return (
     <MotiView
       from={{ opacity: 0, translateY: 10 }}
@@ -105,7 +291,7 @@ const AnimatedMessage = ({
       style={{
         marginBottom: 15,
         alignItems: msg.isUser ? "flex-end" : "flex-start",
-        maxWidth: "85%",
+        maxWidth: msg.isUser ? "85%" : "90%",
         alignSelf: msg.isUser ? "flex-end" : "flex-start",
       }}
     >
@@ -179,7 +365,7 @@ const AnimatedMessage = ({
             {msg.text}
           </Text>
         ) : (
-          <View style={{ paddingRight: !msg.isUser ? 28 : 0 }}>
+          <View style={{ paddingRight: 28 }}>
             <MarkdownText
               text={msg.text}
               style={{
@@ -190,6 +376,9 @@ const AnimatedMessage = ({
                 textAlign: language === "ar" ? "right" : "left",
               }}
             />
+            
+            {/* Display image grid */}
+            {renderImageGrid(msg.images)}
           </View>
         )}
       </MotiView>
@@ -208,9 +397,377 @@ const AnimatedMessage = ({
           {msg.timestamp}
         </Text>
       )}
+      
+      {/* Image viewer modal */}
+      <ImageViewerModal
+        visible={modalVisible}
+        imageUrl={selectedImage}
+        onClose={handleCloseModal}
+      />
     </MotiView>
   );
 };
+
+// Test component with hardcoded image
+const TestImageComponent = () => {
+  return (
+    <View style={{ padding: 20 }}>
+      <Text>Test Image:</Text>
+      <Image 
+        source={{ uri: "https://cenomi-prod-cdn-huepc5h2frc5c9dj.a02.azurefd.net/prodpublicaccessblob/public-files/c7540ef9f41602cda1c86914889d7902.png" }}
+        style={{ width: 200, height: 100, marginTop: 10 }}
+      />
+    </View>
+  );
+};
+
+// Test fixed image URL that was seen in the API response
+const TestApiImage = () => {
+  // Use an actual image URL from the API response we saw in the logs
+  const imageUrl = "https://cenomi-prod-cdn-huepc5h2frc5c9dj.a02.azurefd.net/prodpublicaccessblob/public-files/c7540ef9f41602cda1c86914889d7902.png";
+  
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  
+  return (
+    <View style={{ padding: 10, backgroundColor: '#efefef', margin: 5, borderRadius: 8 }}>
+      <Text style={{ marginBottom: 5, fontSize: 12 }}>Test Direct API Image:</Text>
+      {error ? (
+        <Text style={{ color: 'red', fontSize: 10 }}>Failed to load image</Text>
+      ) : (
+        <Image 
+          source={{ uri: imageUrl }}
+          style={{ width: "100%", height: 80, borderRadius: 8 }}
+          onLoadStart={() => setLoading(true)}
+          onLoad={() => setLoading(false)}
+          onError={() => setError(true)}
+        />
+      )}
+      {loading && !error && <Text style={{ fontSize: 10 }}>Loading...</Text>}
+      <Text style={{ fontSize: 9, marginTop: 2 }}>{imageUrl}</Text>
+    </View>
+  );
+};
+
+// Image Viewer Modal Props Interface
+interface ImageViewerModalProps {
+  visible: boolean;
+  imageUrl: string | null;
+  onClose: () => void;
+}
+
+const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [zoomPercentage, setZoomPercentage] = useState("100%");
+  
+  // Reanimated shared values for gestures
+  const scale = useSharedValue(1);
+  const focalX = useSharedValue(0);
+  const focalY = useSharedValue(0);
+  
+  // Refs for gesture handlers
+  const pinchRef = useRef(null);
+  const doubleTapRef = useRef(null);
+  
+  // Constants for zoom
+  const minZoom = 0.5;
+  const maxZoom = 2;
+  
+  // Function to update zoom percentage
+  const updateZoomPercentage = (newScale) => {
+    setZoomPercentage(`${Math.round(newScale * 100)}%`);
+  };
+  
+  // Reset state when modal opens
+  useEffect(() => {
+    if (visible) {
+      setLoading(true);
+      setError(false);
+      scale.value = 1;
+      setZoomPercentage("100%");
+    }
+  }, [visible, imageUrl]);
+  
+  // Handle pinch gesture
+  const pinchGestureEvent = useAnimatedGestureHandler({
+    onActive: (event: any) => {
+      // Use the pinch scale to adjust our scale value
+      const newScale = Math.min(Math.max(event.scale, minZoom), maxZoom);
+      scale.value = newScale;
+      focalX.value = event.focalX || 0;
+      focalY.value = event.focalY || 0;
+      
+      // We can't update UI state directly in the worklet
+      // This will be handled by the + and - buttons instead
+    },
+    onEnd: () => {
+      // Spring back if below minimum scale
+      if (scale.value < minZoom) {
+        scale.value = withTiming(minZoom, { duration: 200 });
+      }
+      // Spring back if above maximum scale
+      else if (scale.value > maxZoom) {
+        scale.value = withTiming(maxZoom, { duration: 200 });
+      }
+    }
+  });
+  
+  // Handle double tap to zoom
+  const onDoubleTapEvent = (event: any) => {
+    if (event.nativeEvent && event.nativeEvent.state === State.ACTIVE) {
+      if (scale.value > 1) {
+        // Zoom out to normal
+        scale.value = withTiming(1, { duration: 250 });
+        updateZoomPercentage(1);
+      } else {
+        // Zoom in to 1.5x
+        scale.value = withTiming(1.5, { duration: 250 });
+        updateZoomPercentage(1.5);
+      }
+    }
+  };
+  
+  // Animated style for the image
+  const animatedImageStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { scale: scale.value }
+      ]
+    };
+  });
+  
+  const handleBackgroundPress = () => {
+    onClose();
+  };
+  
+  // Exit if no image URL
+  if (!imageUrl) {
+    return null;
+  }
+  
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent={true}
+    >
+      <View style={styles.modalContainer}>
+        {/* Close button */}
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={onClose}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close" size={24} color="white" />
+        </TouchableOpacity>
+        
+        {/* Empty area that closes the modal when tapped */}
+        <TouchableOpacity
+          style={styles.topEmptyArea}
+          activeOpacity={1}
+          onPress={handleBackgroundPress}
+        />
+        
+        {/* Image container with gesture handlers */}
+        <View style={styles.imageContainer}>
+          {loading && !error && (
+            <ActivityIndicator 
+              style={styles.loader} 
+              size="large" 
+              color="#FFFFFF" 
+            />
+          )}
+          
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle-outline" size={32} color="#FFFFFF" />
+              <Text style={styles.errorText}>Failed to load image</Text>
+            </View>
+          ) : (
+            <TapGestureHandler
+              ref={doubleTapRef}
+              numberOfTaps={2}
+              onHandlerStateChange={onDoubleTapEvent}
+            >
+              <Reanimated.View style={styles.touchContainer}>
+                <PinchGestureHandler
+                  ref={pinchRef}
+                  onGestureEvent={pinchGestureEvent}
+                >
+                  <Reanimated.View style={styles.touchContainer}>
+                    <Reanimated.Image
+                      source={{ uri: imageUrl }}
+                      style={[
+                        styles.image,
+                        animatedImageStyle
+                      ]}
+                      onLoadStart={() => setLoading(true)}
+                      onLoad={() => setLoading(false)}
+                      onError={() => {
+                        setLoading(false);
+                        setError(true);
+                      }}
+                      resizeMode="contain"
+                    />
+                  </Reanimated.View>
+                </PinchGestureHandler>
+              </Reanimated.View>
+            </TapGestureHandler>
+          )}
+        </View>
+        
+        {/* Empty area at bottom that closes the modal when tapped */}
+        <TouchableOpacity
+          style={styles.bottomEmptyArea}
+          activeOpacity={1}
+          onPress={handleBackgroundPress}
+        />
+        
+        {/* Zoom Controls */}
+        <View style={styles.zoomControls}>
+          <TouchableOpacity 
+            style={styles.zoomButton}
+            onPress={() => {
+              const newScale = Math.max(scale.value - 0.1, minZoom);
+              scale.value = withTiming(newScale, { duration: 150 });
+              updateZoomPercentage(newScale);
+            }}
+          >
+            <Ionicons name="remove" size={24} color="white" />
+          </TouchableOpacity>
+          
+          <View style={styles.zoomTextContainer}>
+            <Text style={styles.zoomText}>
+              {zoomPercentage}
+            </Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.zoomButton}
+            onPress={() => {
+              const newScale = Math.min(scale.value + 0.1, maxZoom);
+              scale.value = withTiming(newScale, { duration: 150 });
+              updateZoomPercentage(newScale);
+            }}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Instructions text */}
+        <Text style={styles.instructions}>
+          Pinch to zoom • Double-tap to zoom • Tap outside to close
+        </Text>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 10,
+  },
+  topEmptyArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '25%',
+    width: '100%',
+  },
+  bottomEmptyArea: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '25%',
+    width: '100%',
+  },
+  imageContainer: {
+    width: '100%',
+    height: '50%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  touchContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  image: {
+    width: screenWidth * 0.9,
+    height: screenHeight * 0.4,
+    maxWidth: screenWidth * 0.9,
+    maxHeight: screenHeight * 0.4,
+  },
+  loader: {
+    position: 'absolute',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: 'white',
+    marginTop: 10,
+    fontFamily: 'Poppins-Regular',
+  },
+  zoomControls: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 80 : 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 5,
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  zoomTextContainer: {
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomText: {
+    color: 'white',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+  },
+  instructions: {
+    color: 'white',
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 40 : 20,
+    textAlign: 'center',
+    fontSize: 12,
+    opacity: 0.7,
+    fontFamily: 'Poppins-Regular',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+});
 
 export default function HomeScreen() {
   const [message, setMessage] = useState("");
@@ -230,6 +787,14 @@ export default function HomeScreen() {
   const activeSoundRef = useRef(null);
   // Track which message is currently playing
   const [playingMessageId, setPlayingMessageId] = useState(null);
+
+  // Display test image component at the top for debugging
+  const [showTestImage, setShowTestImage] = useState(false);
+  
+  // Toggle test image with a button press
+  const toggleTestImage = () => {
+    setShowTestImage(!showTestImage);
+  };
 
   // Use a function to set welcome messages based on language
   const getWelcomeMessages = (lang) => {
@@ -295,7 +860,7 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.0.43:8000/malls");
+      const response = await fetch("http://192.168.70.230:8000/malls");
       const data = await response.json();
       setMalls(data);
       if (!selectedMall && data.length > 0) {
@@ -502,7 +1067,7 @@ export default function HomeScreen() {
     await stopTTS();
 
     try {
-      const response = await fetch("http://192.168.0.43:8000/tts", {
+      const response = await fetch("http://192.168.70.230:8000/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, language }),
@@ -596,7 +1161,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.0.43:8000/chat";
+      const backendUrl = "http://192.168.70.230:8000/chat";
       const requestBody = {
         text: userMessage.text,
         conversation_id: conversationId,
@@ -617,6 +1182,11 @@ export default function HomeScreen() {
       }
 
       const data = await response.json();
+      
+      // Detailed console debugging to see exactly what's in the response
+      console.log("Full API response:", JSON.stringify(data));
+      console.log("Images structure:", data.images ? JSON.stringify(data.images) : "No images");
+      
       const botResponse = {
         id: messages.length + 2,
         text: data.message || "No response received.",
@@ -625,7 +1195,12 @@ export default function HomeScreen() {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        images: data.images || [],
       };
+      
+      // Log what's being stored in the message object
+      console.log("Bot message with images:", JSON.stringify(botResponse.images));
+      
       setMessages((prev) => [...prev, botResponse]);
       setConversationId(data.conversation_id);
       await AsyncStorage.setItem("conversation_id", data.conversation_id);
@@ -778,6 +1353,18 @@ export default function HomeScreen() {
                   resizeMode: "contain",
                 }}
               />
+              {/* Add debug button */}
+              <TouchableOpacity 
+                onPress={toggleTestImage}
+                style={{
+                  marginLeft: 10,
+                  backgroundColor: "#f0f0f0",
+                  padding: 5,
+                  borderRadius: 5,
+                }}
+              >
+                <Text style={{ fontSize: 10 }}>Test</Text>
+              </TouchableOpacity>
             </View>
             <TouchableOpacity
               onPress={toggleLanguage}
@@ -985,17 +1572,24 @@ export default function HomeScreen() {
               </MotiView>
             )}
 
-            {messages.map((msg, index) => (
-              <AnimatedMessage
-                key={msg.id}
-                msg={msg}
-                index={index}
-                language={language}
-                playingId={playingMessageId}
-                onPlay={(text, id) => playTTS(text, id)}
-                onStop={stopTTS}
-              />
-            ))}
+            {messages.map((msg, idx) => {
+              // Add debugging for each message as it's rendered
+              if (!msg.isUser && msg.images && Array.isArray(msg.images)) {
+                console.log(`Rendering message ${msg.id} with ${msg.images.length} images`);
+              }
+              
+              return (
+                <AnimatedMessage
+                  key={`message-${msg.id}`}
+                  msg={msg}
+                  index={idx}
+                  language={language}
+                  playingId={playingMessageId}
+                  onPlay={(text, id) => playTTS(text, id)}
+                  onStop={stopTTS}
+                />
+              );
+            })}
 
             {isTyping && (
               <View
