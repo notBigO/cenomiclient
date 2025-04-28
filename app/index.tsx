@@ -295,7 +295,7 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.1.29:8000/malls");
+      const response = await fetch("http://192.168.0.43:8000/malls");
       const data = await response.json();
       setMalls(data);
       if (!selectedMall && data.length > 0) {
@@ -502,7 +502,7 @@ export default function HomeScreen() {
     await stopTTS();
 
     try {
-      const response = await fetch("http://192.168.1.29:8000/tts", {
+      const response = await fetch("http://192.168.0.43:8000/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, language }),
@@ -596,7 +596,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.1.29:8000/chat";
+      const backendUrl = "http://192.168.0.43:8000/chat";
       const requestBody = {
         text: userMessage.text,
         conversation_id: conversationId,
