@@ -18,6 +18,8 @@ import {
   StyleSheet,
   PanResponder,
   Animated,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -518,117 +520,123 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-      statusBarTranslucent={true}
-    >
-      <View style={styles.modalContainer}>
-        {/* Close button */}
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={onClose}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close" size={24} color="white" />
-        </TouchableOpacity>
-
-        {/* Empty area that closes the modal when tapped */}
-        <TouchableOpacity
-          style={styles.topEmptyArea}
-          activeOpacity={1}
-          onPress={handleBackgroundPress}
-        />
-
-        {/* Image container with gesture handlers */}
-        <View style={styles.imageContainer}>
-          {loading && !error && (
-            <ActivityIndicator
-              style={styles.loader}
-              size="large"
-              color="#FFFFFF"
-            />
-          )}
-
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle-outline" size={32} color="#FFFFFF" />
-              <Text style={styles.errorText}>Failed to load image</Text>
-            </View>
-          ) : (
-            <TapGestureHandler
-              ref={doubleTapRef}
-              numberOfTaps={2}
-              onHandlerStateChange={onDoubleTapEvent}
-            >
-              <Reanimated.View style={styles.touchContainer}>
-                <PinchGestureHandler
-                  ref={pinchRef}
-                  onGestureEvent={pinchGestureEvent}
-                >
-                  <Reanimated.View style={styles.touchContainer}>
-                    <Reanimated.Image
-                      source={{ uri: imageUrl }}
-                      style={[styles.image, animatedImageStyle]}
-                      onLoadStart={() => setLoading(true)}
-                      onLoad={() => setLoading(false)}
-                      onError={() => {
-                        setLoading(false);
-                        setError(true);
-                      }}
-                      resizeMode="contain"
-                    />
-                  </Reanimated.View>
-                </PinchGestureHandler>
-              </Reanimated.View>
-            </TapGestureHandler>
-          )}
-        </View>
-
-        {/* Empty area at bottom that closes the modal when tapped */}
-        <TouchableOpacity
-          style={styles.bottomEmptyArea}
-          activeOpacity={1}
-          onPress={handleBackgroundPress}
-        />
-
-        {/* Zoom Controls */}
-        <View style={styles.zoomControls}>
+    <View>
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={onClose}
+        statusBarTranslucent={true}
+      >
+        <View style={styles.modalContainer}>
+          {/* Close button */}
           <TouchableOpacity
-            style={styles.zoomButton}
-            onPress={() => {
-              const newScale = Math.max(scale.value - 0.1, minZoom);
-              scale.value = withTiming(newScale, { duration: 150 });
-              updateZoomPercentage(newScale);
-            }}
+            style={styles.closeButton}
+            onPress={onClose}
+            activeOpacity={0.7}
           >
-            <Ionicons name="remove" size={24} color="white" />
+            <Ionicons name="close" size={24} color="white" />
           </TouchableOpacity>
 
-          <View style={styles.zoomTextContainer}>
-            <Text style={styles.zoomText}>{zoomPercentage}</Text>
+          {/* Empty area that closes the modal when tapped */}
+          <TouchableOpacity
+            style={styles.topEmptyArea}
+            activeOpacity={1}
+            onPress={handleBackgroundPress}
+          />
+
+          {/* Image container with gesture handlers */}
+          <View style={styles.imageContainer}>
+            {loading && !error && (
+              <ActivityIndicator
+                style={styles.loader}
+                size="large"
+                color="#FFFFFF"
+              />
+            )}
+
+            {error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={32}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.errorText}>Failed to load image</Text>
+              </View>
+            ) : (
+              <TapGestureHandler
+                ref={doubleTapRef}
+                numberOfTaps={2}
+                onHandlerStateChange={onDoubleTapEvent}
+              >
+                <Reanimated.View style={styles.touchContainer}>
+                  <PinchGestureHandler
+                    ref={pinchRef}
+                    onGestureEvent={pinchGestureEvent}
+                  >
+                    <Reanimated.View style={styles.touchContainer}>
+                      <Reanimated.Image
+                        source={{ uri: imageUrl }}
+                        style={[styles.image, animatedImageStyle]}
+                        onLoadStart={() => setLoading(true)}
+                        onLoad={() => setLoading(false)}
+                        onError={() => {
+                          setLoading(false);
+                          setError(true);
+                        }}
+                        resizeMode="contain"
+                      />
+                    </Reanimated.View>
+                  </PinchGestureHandler>
+                </Reanimated.View>
+              </TapGestureHandler>
+            )}
           </View>
 
+          {/* Empty area at bottom that closes the modal when tapped */}
           <TouchableOpacity
-            style={styles.zoomButton}
-            onPress={() => {
-              const newScale = Math.min(scale.value + 0.1, maxZoom);
-              scale.value = withTiming(newScale, { duration: 150 });
-              updateZoomPercentage(newScale);
-            }}
-          >
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+            style={styles.bottomEmptyArea}
+            activeOpacity={1}
+            onPress={handleBackgroundPress}
+          />
 
-        {/* Instructions text */}
-        <Text style={styles.instructions}>
-          Pinch to zoom • Double-tap to zoom • Tap outside to close
-        </Text>
-      </View>
-    </Modal>
+          {/* Zoom Controls */}
+          <View style={styles.zoomControls}>
+            <TouchableOpacity
+              style={styles.zoomButton}
+              onPress={() => {
+                const newScale = Math.max(scale.value - 0.1, minZoom);
+                scale.value = withTiming(newScale, { duration: 150 });
+                updateZoomPercentage(newScale);
+              }}
+            >
+              <Ionicons name="remove" size={24} color="white" />
+            </TouchableOpacity>
+
+            <View style={styles.zoomTextContainer}>
+              <Text style={styles.zoomText}>{zoomPercentage}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.zoomButton}
+              onPress={() => {
+                const newScale = Math.min(scale.value + 0.1, maxZoom);
+                scale.value = withTiming(newScale, { duration: 150 });
+                updateZoomPercentage(newScale);
+              }}
+            >
+              <Ionicons name="add" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Instructions text */}
+          <Text style={styles.instructions}>
+            Pinch to zoom • Double-tap to zoom • Tap outside to close
+          </Text>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
@@ -826,7 +834,7 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.0.44:8000/malls");
+      const response = await fetch("http://40.172.7.59:8000/malls");
       const data = await response.json();
       setMalls(data);
       if (!selectedMall && data.length > 0) {
@@ -1033,7 +1041,7 @@ export default function HomeScreen() {
     await stopTTS();
 
     try {
-      const response = await fetch("http://192.168.0.44:8000/tts", {
+      const response = await fetch("http://40.172.7.59:8000/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, language }),
@@ -1127,7 +1135,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.0.44:8000/chat";
+      const backendUrl = "http://40.172.7.59:8000/chat";
       const requestBody = {
         text: userMessage.text,
         conversation_id: conversationId,
@@ -1254,6 +1262,26 @@ export default function HomeScreen() {
     ],
   };
 
+  // Add keyboard state tracking
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Add keyboard listeners
+  useEffect(() => {
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setKeyboardVisible(true)
+    );
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
+
   if (!fontsLoaded) {
     return (
       <View
@@ -1298,9 +1326,9 @@ export default function HomeScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.headerBg} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <View style={{ flex: 1 }}>
           {/* Header */}
@@ -1310,13 +1338,21 @@ export default function HomeScreen() {
               alignItems: "center",
               justifyContent: "space-between",
               paddingHorizontal: 20,
-              paddingVertical: 15,
+              paddingTop: Platform.OS === "android" ? 50 : 15,
+              paddingBottom: 15,
               backgroundColor: theme.headerBg,
               borderBottomColor: theme.border,
               borderBottomWidth: 1,
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
+              style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+            >
               <Image
                 source={require("../assets/logo.png")}
                 style={{
@@ -1325,18 +1361,20 @@ export default function HomeScreen() {
                   resizeMode: "contain",
                 }}
               />
-              {/* Add debug button */}
-              <TouchableOpacity
-                onPress={toggleTestImage}
-                style={{
-                  marginLeft: 10,
-                  backgroundColor: "#f0f0f0",
-                  padding: 5,
-                  borderRadius: 5,
-                }}
-              >
-                <Text style={{ fontSize: 10 }}>Test</Text>
-              </TouchableOpacity>
+              {/* Test button - only show in development */}
+              {__DEV__ && (
+                <TouchableOpacity
+                  onPress={toggleTestImage}
+                  style={{
+                    marginLeft: 10,
+                    backgroundColor: "#f0f0f0",
+                    padding: 5,
+                    borderRadius: 5,
+                  }}
+                >
+                  <Text style={{ fontSize: 10 }}>Test</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               onPress={toggleLanguage}
@@ -1345,6 +1383,7 @@ export default function HomeScreen() {
                 paddingVertical: 6,
                 backgroundColor: theme.secondary,
                 borderRadius: 16,
+                marginLeft: 10,
               }}
             >
               <Text
@@ -1474,257 +1513,267 @@ export default function HomeScreen() {
           )}
 
           {/* Chat Area */}
-          <ScrollView
-            ref={scrollViewRef}
-            style={{ flex: 1, paddingHorizontal: 15, paddingTop: 15 }}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            onContentSizeChange={() =>
-              scrollViewRef.current?.scrollToEnd({ animated: true })
-            }
-            showsVerticalScrollIndicator={false}
-          >
-            {messages.length === 2 && (
-              <MotiView
-                from={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ type: "timing", duration: 250 }}
-                style={{ marginBottom: 25 }}
-              >
-                <Text
-                  style={{
-                    color: theme.placeholder,
-                    fontFamily: "Poppins-Medium",
-                    marginBottom: 12,
-                    fontSize: isSmallScreen ? 13 : 15,
-                  }}
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              ref={scrollViewRef}
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                padding: 15,
+                paddingBottom: 20,
+              }}
+              onContentSizeChange={() =>
+                scrollViewRef.current?.scrollToEnd({ animated: true })
+              }
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {messages.length === 2 && (
+                <MotiView
+                  from={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: "timing", duration: 250 }}
+                  style={{ marginBottom: 25 }}
                 >
-                  {language === "en" ? "Try asking about:" : "جرب السؤال عن:"}
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={{ marginBottom: 8 }}
-                >
-                  {quickPrompts[language].map((prompt, index) => (
-                    <MotiView
-                      key={`prompt-${index}`}
-                      from={{ opacity: 0, translateX: -5 }}
-                      animate={{ opacity: 1, translateX: 0 }}
-                      transition={{
-                        type: "timing",
-                        duration: 200,
-                        delay: 200 + index * 50,
-                      }}
-                    >
-                      <TouchableOpacity
-                        onPress={() => handleSend(prompt)}
-                        style={{
-                          backgroundColor: theme.secondary,
-                          borderRadius: 20,
-                          paddingVertical: 10,
-                          paddingHorizontal: 16,
-                          marginRight: 10,
-                          borderWidth: 1,
-                          borderColor: theme.border,
+                  <Text
+                    style={{
+                      color: theme.placeholder,
+                      fontFamily: "Poppins-Medium",
+                      marginBottom: 12,
+                      fontSize: isSmallScreen ? 13 : 15,
+                    }}
+                  >
+                    {language === "en" ? "Try asking about:" : "جرب السؤال عن:"}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ marginBottom: 8 }}
+                  >
+                    {quickPrompts[language].map((prompt, index) => (
+                      <MotiView
+                        key={`prompt-${index}`}
+                        from={{ opacity: 0, translateX: -5 }}
+                        animate={{ opacity: 1, translateX: 0 }}
+                        transition={{
+                          type: "timing",
+                          duration: 200,
+                          delay: 200 + index * 50,
                         }}
                       >
-                        <Text
+                        <TouchableOpacity
+                          onPress={() => handleSend(prompt)}
                           style={{
-                            color: theme.text,
-                            fontFamily: "Poppins-Regular",
-                            fontSize: isSmallScreen ? 12 : 14,
+                            backgroundColor: theme.secondary,
+                            borderRadius: 20,
+                            paddingVertical: 10,
+                            paddingHorizontal: 16,
+                            marginRight: 10,
+                            borderWidth: 1,
+                            borderColor: theme.border,
                           }}
                         >
-                          {prompt}
-                        </Text>
-                      </TouchableOpacity>
-                    </MotiView>
-                  ))}
-                </ScrollView>
-              </MotiView>
-            )}
+                          <Text
+                            style={{
+                              color: theme.text,
+                              fontFamily: "Poppins-Regular",
+                              fontSize: isSmallScreen ? 12 : 14,
+                            }}
+                          >
+                            {prompt}
+                          </Text>
+                        </TouchableOpacity>
+                      </MotiView>
+                    ))}
+                  </ScrollView>
+                </MotiView>
+              )}
 
-            {messages.map((msg, idx) => {
-              // Add debugging for each message as it's rendered
-              if (!msg.isUser && msg.images && Array.isArray(msg.images)) {
-                console.log(
-                  `Rendering message ${msg.id} with ${msg.images.length} images`
+              {messages.map((msg, idx) => {
+                // Add debugging for each message as it's rendered
+                if (!msg.isUser && msg.images && Array.isArray(msg.images)) {
+                  console.log(
+                    `Rendering message ${msg.id} with ${msg.images.length} images`
+                  );
+                }
+
+                return (
+                  <AnimatedMessage
+                    key={`message-${msg.id}`}
+                    msg={msg}
+                    index={idx}
+                    language={language}
+                    playingId={playingMessageId}
+                    onPlay={(text, id) => playTTS(text, id)}
+                    onStop={stopTTS}
+                  />
                 );
-              }
+              })}
 
-              return (
-                <AnimatedMessage
-                  key={`message-${msg.id}`}
-                  msg={msg}
-                  index={idx}
-                  language={language}
-                  playingId={playingMessageId}
-                  onPlay={(text, id) => playTTS(text, id)}
-                  onStop={stopTTS}
-                />
-              );
-            })}
-
-            {isTyping && (
-              <View
-                style={{
-                  marginBottom: 15,
-                  alignItems: "flex-start",
-                  maxWidth: dimensions.width * 0.25,
-                  backgroundColor: theme.messageBg,
-                  borderRadius: 20,
-                  borderTopLeftRadius: 4,
-                  padding: 4,
-                }}
-              >
-                <TypingIndicator />
-              </View>
-            )}
-          </ScrollView>
+              {isTyping && (
+                <View
+                  style={{
+                    marginBottom: 15,
+                    alignItems: "flex-start",
+                    maxWidth: dimensions.width * 0.25,
+                    backgroundColor: theme.messageBg,
+                    borderRadius: 20,
+                    borderTopLeftRadius: 4,
+                    padding: 4,
+                  }}
+                >
+                  <TypingIndicator />
+                </View>
+              )}
+            </ScrollView>
+          </View>
 
           {/* Input Area with STT Controls */}
-          <MotiView
-            from={{ translateY: 20, opacity: 0 }}
-            animate={{ translateY: 0, opacity: 1 }}
-            transition={{ type: "timing", duration: 300 }}
+          <View
             style={{
-              paddingHorizontal: 15,
-              paddingVertical: 10,
               borderTopWidth: 1,
               borderTopColor: theme.border,
               backgroundColor: theme.background,
+              paddingBottom: Platform.OS === "ios" ? 20 : 10,
+              paddingTop: 10,
             }}
           >
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                backgroundColor: theme.inputBg,
-                borderRadius: 25,
-                overflow: "hidden",
+                paddingHorizontal: 15,
+                backgroundColor: theme.background,
               }}
             >
-              <TouchableOpacity
-                onPress={isRecognizing ? stopRecording : startRecording}
-                style={{
-                  padding: 12,
-                  backgroundColor: isRecognizing
-                    ? theme.primary
-                    : "transparent",
-                  borderRadius: isRecognizing ? 20 : 0,
-                }}
-              >
-                <Ionicons
-                  name={isRecognizing ? "stop" : "mic"}
-                  size={20}
-                  color={isRecognizing ? theme.userMessageText : theme.text}
-                />
-              </TouchableOpacity>
-              <TextInput
+              <View
                 style={{
                   flex: 1,
-                  paddingVertical: 12,
-                  paddingHorizontal: 15,
-                  color: theme.text,
-                  fontFamily: "Poppins-Regular",
-                  textAlign: language === "ar" ? "right" : "left",
-                  writingDirection: language === "ar" ? "rtl" : "ltr",
-                  maxHeight: 100,
-                  fontSize: isSmallScreen ? 13 : 15,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: theme.inputBg,
+                  borderRadius: 25,
+                  overflow: "hidden",
                 }}
-                placeholder={
-                  language === "en"
-                    ? "Message Cenomi AI..."
-                    : "راسل سينومي AI..."
-                }
-                placeholderTextColor={theme.placeholder}
-                value={message}
-                onChangeText={(text) => setMessage(text || "")}
-                onSubmitEditing={() => handleSend()}
-                returnKeyType="send"
-                multiline
-              />
-              {playingMessageId ? (
+              >
                 <TouchableOpacity
-                  onPress={stopTTS}
+                  onPress={isRecognizing ? stopRecording : startRecording}
                   style={{
                     padding: 12,
-                    backgroundColor: theme.primary + "20", // Semi-transparent
-                    borderRadius: 20,
+                    backgroundColor: isRecognizing
+                      ? theme.primary
+                      : "transparent",
+                    borderRadius: isRecognizing ? 20 : 0,
+                  }}
+                >
+                  <Ionicons
+                    name={isRecognizing ? "stop" : "mic"}
+                    size={20}
+                    color={isRecognizing ? theme.userMessageText : theme.text}
+                  />
+                </TouchableOpacity>
+                <TextInput
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    paddingHorizontal: 15,
+                    color: theme.text,
+                    fontFamily: "Poppins-Regular",
+                    textAlign: language === "ar" ? "right" : "left",
+                    writingDirection: language === "ar" ? "rtl" : "ltr",
+                    maxHeight: 100,
+                    fontSize: isSmallScreen ? 13 : 15,
+                  }}
+                  placeholder={
+                    language === "en"
+                      ? "Message Cenomi AI..."
+                      : "راسل سينومي AI..."
+                  }
+                  placeholderTextColor={theme.placeholder}
+                  value={message}
+                  onChangeText={(text) => setMessage(text || "")}
+                  onSubmitEditing={() => {
+                    Keyboard.dismiss();
+                    handleSend();
+                  }}
+                  returnKeyType="send"
+                  multiline
+                />
+                {playingMessageId ? (
+                  <TouchableOpacity
+                    onPress={stopTTS}
+                    style={{
+                      padding: 12,
+                      backgroundColor: theme.primary + "20", // Semi-transparent
+                      borderRadius: 20,
+                      marginRight: 5,
+                    }}
+                  >
+                    <Ionicons
+                      name="stop-circle"
+                      size={20}
+                      color={theme.primary}
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    onPress={toggleAutoPlayTTS}
+                    style={{
+                      padding: 12,
+                    }}
+                  >
+                    <Ionicons
+                      name={autoPlayTTS ? "volume-high" : "volume-mute"}
+                      size={20}
+                      color={autoPlayTTS ? theme.primary : theme.placeholder}
+                    />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => handleSend()}
+                  disabled={!message?.trim() || !selectedMall || isTyping}
+                  style={{
+                    backgroundColor:
+                      message?.trim() && selectedMall && !isTyping
+                        ? theme.primary
+                        : theme.secondary,
+                    borderRadius: 25,
+                    padding: 12,
                     marginRight: 5,
                   }}
                 >
                   <Ionicons
-                    name="stop-circle"
+                    name="paper-plane-outline"
                     size={20}
-                    color={theme.primary}
+                    color={
+                      message?.trim() && selectedMall && !isTyping
+                        ? theme.userMessageText
+                        : theme.placeholder
+                    }
                   />
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={toggleAutoPlayTTS}
-                  style={{
-                    padding: 12,
-                  }}
-                >
-                  <Ionicons
-                    name={autoPlayTTS ? "volume-high" : "volume-mute"}
-                    size={20}
-                    color={autoPlayTTS ? theme.primary : theme.placeholder}
-                  />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() => handleSend()}
-                disabled={!message?.trim() || !selectedMall || isTyping}
-                style={{
-                  backgroundColor:
-                    message?.trim() && selectedMall && !isTyping
-                      ? theme.primary
-                      : theme.secondary,
-                  borderRadius: 25,
-                  padding: 12,
-                  marginRight: 5,
-                }}
-              >
-                <Ionicons
-                  name="paper-plane-outline"
-                  size={20}
-                  color={
-                    message?.trim() && selectedMall && !isTyping
-                      ? theme.userMessageText
-                      : theme.placeholder
-                  }
-                />
-              </TouchableOpacity>
+              </View>
             </View>
 
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ type: "timing", duration: 500, delay: 500 }}
+            <TouchableOpacity
+              onPress={clearChat}
+              style={{
+                alignSelf: "center",
+                marginTop: 8,
+                paddingVertical: 4,
+                paddingHorizontal: 10,
+              }}
             >
-              <TouchableOpacity
-                onPress={clearChat}
+              <Text
                 style={{
-                  alignSelf: "center",
-                  marginTop: 10,
-                  paddingVertical: 5,
-                  paddingHorizontal: 10,
+                  color: theme.placeholder,
+                  fontFamily: "Poppins-Medium",
+                  fontSize: isSmallScreen ? 11 : 13,
                 }}
               >
-                <Text
-                  style={{
-                    color: theme.placeholder,
-                    fontFamily: "Poppins-Medium",
-                    fontSize: isSmallScreen ? 11 : 13,
-                  }}
-                >
-                  {language === "en" ? "Clear conversation" : "مسح المحادثة"}
-                </Text>
-              </TouchableOpacity>
-            </MotiView>
-          </MotiView>
+                {language === "en" ? "Clear conversation" : "مسح المحادثة"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

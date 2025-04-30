@@ -21,11 +21,15 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.anonymous.cenomiclient",
+      "package": "com.cenomiclient",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "androidGradlePlugin": "8.1.0",
+      "androidX": true,
+      "enableJetifier": true,
+      "buildType": "apk"
     },
     "web": {
       "bundler": "metro",
@@ -53,6 +57,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "e1782484-8196-4590-b941-bf1c2024fcbe"
+      }
     }
   }
 }
