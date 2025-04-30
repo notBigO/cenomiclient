@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import {
   ViewStyle,
   StyleSheet,
   PanResponder,
-  Animated
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,19 +25,19 @@ import { useFonts } from "expo-font";
 import { MotiView } from "moti";
 import { Audio } from "expo-av";
 import Voice from "@react-native-voice/voice";
-import Reanimated, { 
-  useAnimatedGestureHandler, 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming 
+import Reanimated, {
+  useAnimatedGestureHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from "react-native-reanimated";
-import { 
-  PinchGestureHandler, 
-  TapGestureHandler, 
-  State 
+import {
+  PinchGestureHandler,
+  TapGestureHandler,
+  State,
 } from "react-native-gesture-handler";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 // Markdown renderer component
 const MarkdownText = ({ text, style }) => {
@@ -135,79 +135,83 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   const [imageLoadError, setImageLoadError] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   // Function to handle image load errors
   const handleImageError = (imageIndex) => {
     console.error(`Failed to load image at index ${imageIndex}`);
-    setImageLoadError(prev => ({...prev, [imageIndex]: true}));
+    setImageLoadError((prev) => ({ ...prev, [imageIndex]: true }));
   };
-  
+
   // Function to open image viewer modal
   const handleImagePress = (imageUrl) => {
     setSelectedImage(imageUrl);
     setModalVisible(true);
   };
-  
+
   // Close the modal
   const handleCloseModal = () => {
     setModalVisible(false);
   };
-  
+
   // Image Grid Layout function based on number of images
   const renderImageGrid = (images) => {
     if (!Array.isArray(images) || images.length === 0) return null;
-    
+
     // Function to determine grid layout based on image count
     const getGridStyle = (count: number, index: number): ViewStyle => {
       if (count === 1) {
         return {
-          width: '100%',
-          aspectRatio: 16/9,
+          width: "100%",
+          aspectRatio: 16 / 9,
           borderRadius: 12,
-          marginBottom: 0
+          marginBottom: 0,
         };
       } else if (count === 2) {
         return {
-          width: '49%',
+          width: "49%",
           aspectRatio: 1,
-          borderRadius: 10
+          borderRadius: 10,
         };
       } else if (count === 3) {
         if (index === 0) {
           return {
-            width: '100%', 
-            aspectRatio: 16/9,
+            width: "100%",
+            aspectRatio: 16 / 9,
             borderRadius: 10,
-            marginBottom: 4
+            marginBottom: 4,
           };
         } else {
           return {
-            width: '49%', 
+            width: "49%",
             aspectRatio: 1,
-            borderRadius: 10
+            borderRadius: 10,
           };
         }
       } else {
         // 4 or more images
         return {
-          width: '49%',
+          width: "49%",
           aspectRatio: 1,
           borderRadius: 10,
-          marginBottom: index < 2 ? 4 : 0
+          marginBottom: index < 2 ? 4 : 0,
         };
       }
     };
-    
+
     return (
-      <View style={{
-        marginTop: 12,
-        marginBottom: 5
-      }}>
-        <View style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between'
-        }}>
+      <View
+        style={{
+          marginTop: 12,
+          marginBottom: 5,
+        }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+        >
           {/* Display up to 4 images, with a +X indicator if there are more */}
           {images.slice(0, 4).map((image, i) => {
             if (!image || !image.url) {
@@ -216,15 +220,15 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
 
             const isLastVisible = i === 3 && images.length > 4;
             const remainingCount = images.length - 4;
-            
+
             return (
               <TouchableOpacity
                 key={i}
                 style={{
                   ...getGridStyle(Math.min(images.length, 4), i),
-                  position: 'relative',
-                  overflow: 'hidden',
-                  backgroundColor: '#f0f0f0',
+                  position: "relative",
+                  overflow: "hidden",
+                  backgroundColor: "#f0f0f0",
                 }}
                 onPress={() => handleImagePress(image.url)}
                 activeOpacity={0.9}
@@ -232,29 +236,33 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                 <Image
                   source={{ uri: image.url }}
                   style={{
-                    width: '100%',
-                    height: '100%',
+                    width: "100%",
+                    height: "100%",
                   }}
                   onError={() => handleImageError(i)}
                 />
-                
+
                 {/* Overlay for showing remaining count */}
                 {isLastVisible && (
-                  <View style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    justifyContent: 'center',
-                    alignItems: 'center'
-                  }}>
-                    <Text style={{
-                      color: 'white',
-                      fontFamily: 'Poppins-SemiBold',
-                      fontSize: 20
-                    }}>
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: "rgba(0,0,0,0.5)",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "white",
+                        fontFamily: "Poppins-SemiBold",
+                        fontSize: 20,
+                      }}
+                    >
                       +{remainingCount}
                     </Text>
                   </View>
@@ -263,22 +271,24 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
             );
           })}
         </View>
-        
+
         {/* Show caption if any of the images has alt_text */}
-        {images.some(img => img?.alt_text) && (
-          <Text style={{
-            fontSize: 12,
-            color: '#666',
-            marginTop: 6,
-            fontStyle: 'italic'
-          }}>
-            {images[0]?.alt_text || ''}
+        {images.some((img) => img?.alt_text) && (
+          <Text
+            style={{
+              fontSize: 12,
+              color: "#666",
+              marginTop: 6,
+              fontStyle: "italic",
+            }}
+          >
+            {images[0]?.alt_text || ""}
           </Text>
         )}
       </View>
     );
   };
-  
+
   return (
     <MotiView
       from={{ opacity: 0, translateY: 10 }}
@@ -376,7 +386,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                 textAlign: language === "ar" ? "right" : "left",
               }}
             />
-            
+
             {/* Display image grid */}
             {renderImageGrid(msg.images)}
           </View>
@@ -397,7 +407,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
           {msg.timestamp}
         </Text>
       )}
-      
+
       {/* Image viewer modal */}
       <ImageViewerModal
         visible={modalVisible}
@@ -408,47 +418,6 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   );
 };
 
-// Test component with hardcoded image
-const TestImageComponent = () => {
-  return (
-    <View style={{ padding: 20 }}>
-      <Text>Test Image:</Text>
-      <Image 
-        source={{ uri: "https://cenomi-prod-cdn-huepc5h2frc5c9dj.a02.azurefd.net/prodpublicaccessblob/public-files/c7540ef9f41602cda1c86914889d7902.png" }}
-        style={{ width: 200, height: 100, marginTop: 10 }}
-      />
-    </View>
-  );
-};
-
-// Test fixed image URL that was seen in the API response
-const TestApiImage = () => {
-  // Use an actual image URL from the API response we saw in the logs
-  const imageUrl = "https://cenomi-prod-cdn-huepc5h2frc5c9dj.a02.azurefd.net/prodpublicaccessblob/public-files/c7540ef9f41602cda1c86914889d7902.png";
-  
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  return (
-    <View style={{ padding: 10, backgroundColor: '#efefef', margin: 5, borderRadius: 8 }}>
-      <Text style={{ marginBottom: 5, fontSize: 12 }}>Test Direct API Image:</Text>
-      {error ? (
-        <Text style={{ color: 'red', fontSize: 10 }}>Failed to load image</Text>
-      ) : (
-        <Image 
-          source={{ uri: imageUrl }}
-          style={{ width: "100%", height: 80, borderRadius: 8 }}
-          onLoadStart={() => setLoading(true)}
-          onLoad={() => setLoading(false)}
-          onError={() => setError(true)}
-        />
-      )}
-      {loading && !error && <Text style={{ fontSize: 10 }}>Loading...</Text>}
-      <Text style={{ fontSize: 9, marginTop: 2 }}>{imageUrl}</Text>
-    </View>
-  );
-};
-
 // Image Viewer Modal Props Interface
 interface ImageViewerModalProps {
   visible: boolean;
@@ -456,29 +425,33 @@ interface ImageViewerModalProps {
   onClose: () => void;
 }
 
-const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, onClose }) => {
+const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
+  visible,
+  imageUrl,
+  onClose,
+}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [zoomPercentage, setZoomPercentage] = useState("100%");
-  
+
   // Reanimated shared values for gestures
   const scale = useSharedValue(1);
   const focalX = useSharedValue(0);
   const focalY = useSharedValue(0);
-  
+
   // Refs for gesture handlers
   const pinchRef = useRef(null);
   const doubleTapRef = useRef(null);
-  
+
   // Constants for zoom
   const minZoom = 0.5;
   const maxZoom = 2;
-  
+
   // Function to update zoom percentage
   const updateZoomPercentage = (newScale) => {
     setZoomPercentage(`${Math.round(newScale * 100)}%`);
   };
-  
+
   // Reset state when modal opens
   useEffect(() => {
     if (visible) {
@@ -488,7 +461,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
       setZoomPercentage("100%");
     }
   }, [visible, imageUrl]);
-  
+
   // Handle pinch gesture
   const pinchGestureEvent = useAnimatedGestureHandler({
     onActive: (event: any) => {
@@ -497,7 +470,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
       scale.value = newScale;
       focalX.value = event.focalX || 0;
       focalY.value = event.focalY || 0;
-      
+
       // We can't update UI state directly in the worklet
       // This will be handled by the + and - buttons instead
     },
@@ -510,9 +483,9 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
       else if (scale.value > maxZoom) {
         scale.value = withTiming(maxZoom, { duration: 200 });
       }
-    }
+    },
   });
-  
+
   // Handle double tap to zoom
   const onDoubleTapEvent = (event: any) => {
     if (event.nativeEvent && event.nativeEvent.state === State.ACTIVE) {
@@ -527,25 +500,23 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
       }
     }
   };
-  
+
   // Animated style for the image
   const animatedImageStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { scale: scale.value }
-      ]
+      transform: [{ scale: scale.value }],
     };
   });
-  
+
   const handleBackgroundPress = () => {
     onClose();
   };
-  
+
   // Exit if no image URL
   if (!imageUrl) {
     return null;
   }
-  
+
   return (
     <Modal
       visible={visible}
@@ -563,24 +534,24 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
         >
           <Ionicons name="close" size={24} color="white" />
         </TouchableOpacity>
-        
+
         {/* Empty area that closes the modal when tapped */}
         <TouchableOpacity
           style={styles.topEmptyArea}
           activeOpacity={1}
           onPress={handleBackgroundPress}
         />
-        
+
         {/* Image container with gesture handlers */}
         <View style={styles.imageContainer}>
           {loading && !error && (
-            <ActivityIndicator 
-              style={styles.loader} 
-              size="large" 
-              color="#FFFFFF" 
+            <ActivityIndicator
+              style={styles.loader}
+              size="large"
+              color="#FFFFFF"
             />
           )}
-          
+
           {error ? (
             <View style={styles.errorContainer}>
               <Ionicons name="alert-circle-outline" size={32} color="#FFFFFF" />
@@ -600,10 +571,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
                   <Reanimated.View style={styles.touchContainer}>
                     <Reanimated.Image
                       source={{ uri: imageUrl }}
-                      style={[
-                        styles.image,
-                        animatedImageStyle
-                      ]}
+                      style={[styles.image, animatedImageStyle]}
                       onLoadStart={() => setLoading(true)}
                       onLoad={() => setLoading(false)}
                       onError={() => {
@@ -618,17 +586,17 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
             </TapGestureHandler>
           )}
         </View>
-        
+
         {/* Empty area at bottom that closes the modal when tapped */}
         <TouchableOpacity
           style={styles.bottomEmptyArea}
           activeOpacity={1}
           onPress={handleBackgroundPress}
         />
-        
+
         {/* Zoom Controls */}
         <View style={styles.zoomControls}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.zoomButton}
             onPress={() => {
               const newScale = Math.max(scale.value - 0.1, minZoom);
@@ -638,14 +606,12 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
           >
             <Ionicons name="remove" size={24} color="white" />
           </TouchableOpacity>
-          
+
           <View style={styles.zoomTextContainer}>
-            <Text style={styles.zoomText}>
-              {zoomPercentage}
-            </Text>
+            <Text style={styles.zoomText}>{zoomPercentage}</Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.zoomButton}
             onPress={() => {
               const newScale = Math.min(scale.value + 0.1, maxZoom);
@@ -656,7 +622,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
         </View>
-        
+
         {/* Instructions text */}
         <Text style={styles.instructions}>
           Pinch to zoom • Double-tap to zoom • Tap outside to close
@@ -669,47 +635,47 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({ visible, imageUrl, 
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   closeButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 30,
     right: 20,
     zIndex: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 20,
     padding: 10,
   },
   topEmptyArea: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: '25%',
-    width: '100%',
+    height: "25%",
+    width: "100%",
   },
   bottomEmptyArea: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    height: '25%',
-    width: '100%',
+    height: "25%",
+    width: "100%",
   },
   imageContainer: {
-    width: '100%',
-    height: '50%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "50%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   touchContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   image: {
     width: screenWidth * 0.9,
@@ -718,53 +684,53 @@ const styles = StyleSheet.create({
     maxHeight: screenHeight * 0.4,
   },
   loader: {
-    position: 'absolute',
+    position: "absolute",
   },
   errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorText: {
-    color: 'white',
+    color: "white",
     marginTop: 10,
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
   },
   zoomControls: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 80 : 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    position: "absolute",
+    bottom: Platform.OS === "ios" ? 80 : 60,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     borderRadius: 20,
     padding: 5,
   },
   zoomButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderRadius: 20,
   },
   zoomTextContainer: {
     minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   zoomText: {
-    color: 'white',
-    fontFamily: 'Poppins-Regular',
+    color: "white",
+    fontFamily: "Poppins-Regular",
     fontSize: 14,
   },
   instructions: {
-    color: 'white',
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 40 : 20,
-    textAlign: 'center',
+    color: "white",
+    position: "absolute",
+    bottom: Platform.OS === "ios" ? 40 : 20,
+    textAlign: "center",
     fontSize: 12,
     opacity: 0.7,
-    fontFamily: 'Poppins-Regular',
-    width: '100%',
+    fontFamily: "Poppins-Regular",
+    width: "100%",
     paddingHorizontal: 20,
   },
 });
@@ -790,7 +756,7 @@ export default function HomeScreen() {
 
   // Display test image component at the top for debugging
   const [showTestImage, setShowTestImage] = useState(false);
-  
+
   // Toggle test image with a button press
   const toggleTestImage = () => {
     setShowTestImage(!showTestImage);
@@ -860,7 +826,7 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://192.168.70.230:8000/malls");
+      const response = await fetch("http://192.168.0.44:8000/malls");
       const data = await response.json();
       setMalls(data);
       if (!selectedMall && data.length > 0) {
@@ -1067,7 +1033,7 @@ export default function HomeScreen() {
     await stopTTS();
 
     try {
-      const response = await fetch("http://192.168.70.230:8000/tts", {
+      const response = await fetch("http://192.168.0.44:8000/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, language }),
@@ -1161,7 +1127,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://192.168.70.230:8000/chat";
+      const backendUrl = "http://192.168.0.44:8000/chat";
       const requestBody = {
         text: userMessage.text,
         conversation_id: conversationId,
@@ -1182,11 +1148,14 @@ export default function HomeScreen() {
       }
 
       const data = await response.json();
-      
+
       // Detailed console debugging to see exactly what's in the response
       console.log("Full API response:", JSON.stringify(data));
-      console.log("Images structure:", data.images ? JSON.stringify(data.images) : "No images");
-      
+      console.log(
+        "Images structure:",
+        data.images ? JSON.stringify(data.images) : "No images"
+      );
+
       const botResponse = {
         id: messages.length + 2,
         text: data.message || "No response received.",
@@ -1197,10 +1166,13 @@ export default function HomeScreen() {
         }),
         images: data.images || [],
       };
-      
+
       // Log what's being stored in the message object
-      console.log("Bot message with images:", JSON.stringify(botResponse.images));
-      
+      console.log(
+        "Bot message with images:",
+        JSON.stringify(botResponse.images)
+      );
+
       setMessages((prev) => [...prev, botResponse]);
       setConversationId(data.conversation_id);
       await AsyncStorage.setItem("conversation_id", data.conversation_id);
@@ -1354,7 +1326,7 @@ export default function HomeScreen() {
                 }}
               />
               {/* Add debug button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={toggleTestImage}
                 style={{
                   marginLeft: 10,
@@ -1575,9 +1547,11 @@ export default function HomeScreen() {
             {messages.map((msg, idx) => {
               // Add debugging for each message as it's rendered
               if (!msg.isUser && msg.images && Array.isArray(msg.images)) {
-                console.log(`Rendering message ${msg.id} with ${msg.images.length} images`);
+                console.log(
+                  `Rendering message ${msg.id} with ${msg.images.length} images`
+                );
               }
-              
+
               return (
                 <AnimatedMessage
                   key={`message-${msg.id}`}
