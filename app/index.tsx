@@ -226,6 +226,17 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   const renderImageGrid = (images) => {
     if (!Array.isArray(images) || images.length === 0) return null;
 
+    // Filter out placeholder images with domains like example.com
+    const validImages = images.filter(image => 
+      image && 
+      image.url && 
+      !image.url.includes('example.com') &&
+      !image.url.startsWith('@')
+    );
+
+    // If no valid images remain after filtering, don't render anything
+    if (validImages.length === 0) return null;
+
     // Function to determine grid layout based on image count
     const getGridStyle = (count: number, index: number): ViewStyle => {
       if (count === 1) {
@@ -282,19 +293,19 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
           }}
         >
           {/* Display up to 4 images, with a +X indicator if there are more */}
-          {images.slice(0, 4).map((image, i) => {
+          {validImages.slice(0, 4).map((image, i) => {
             if (!image || !image.url) {
               return null;
             }
 
-            const isLastVisible = i === 3 && images.length > 4;
-            const remainingCount = images.length - 4;
+            const isLastVisible = i === 3 && validImages.length > 4;
+            const remainingCount = validImages.length - 4;
 
             return (
               <TouchableOpacity
                 key={i}
                 style={{
-                  ...getGridStyle(Math.min(images.length, 4), i),
+                  ...getGridStyle(Math.min(validImages.length, 4), i),
                   position: "relative",
                   overflow: "hidden",
                   backgroundColor: "#f0f0f0",
@@ -342,7 +353,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
         </View>
 
         {/* Show caption if any of the images has alt_text */}
-        {images.some((img) => img?.alt_text) && (
+        {validImages.some((img) => img?.alt_text) && (
           <Text
             style={{
               fontSize: 12,
@@ -351,7 +362,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
               fontStyle: "italic",
             }}
           >
-            {images[0]?.alt_text || ""}
+            {validImages[0]?.alt_text || ""}
           </Text>
         )}
       </View>
@@ -1558,14 +1569,14 @@ function HomeScreen() {
               {/* Logo with light/dark mode support */}
               <View
                 style={{
-                  backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  backgroundColor: 'transparent',
                   padding: theme.isDark ? 8 : 0,
                   borderRadius: theme.isDark ? 8 : 0,
                 }}
               >
                 <Logo 
                   style={{
-                    opacity: theme.isDark ? 0.95 : 1,
+                    opacity: theme.isDark ? 1 : 1,
                   }}
                   size={{
                     width: dimensions.width * 0.25,
