@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, createContext, useContext } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  createContext,
+  useContext,
+} from "react";
 import {
   View,
   Text,
@@ -181,18 +187,19 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   const handlePlayTTS = async (text, id) => {
     setMessageLoadingTTS(true);
     try {
-      console.log('AnimatedMessage: Starting TTS for message ID:', id);
+      console.log("AnimatedMessage: Starting TTS for message ID:", id);
       await onPlay(text, id);
     } catch (error) {
-      console.error('AnimatedMessage: Error playing TTS:', error);
+      console.error("AnimatedMessage: Error playing TTS:", error);
     } finally {
-      console.log('AnimatedMessage: Finished TTS request for message ID:', id);
+      console.log("AnimatedMessage: Finished TTS request for message ID:", id);
       setMessageLoadingTTS(false);
     }
   };
 
   // Determine if this specific message is in loading state
-  const isThisMessageLoading = messageLoadingTTS || (loadingTTS && playingId === msg.id);
+  const isThisMessageLoading =
+    messageLoadingTTS || (loadingTTS && playingId === msg.id);
   const isThisMessagePlaying = playingId === msg.id;
 
   // Log the status of this message
@@ -227,11 +234,12 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
     if (!Array.isArray(images) || images.length === 0) return null;
 
     // Filter out placeholder images with domains like example.com
-    const validImages = images.filter(image => 
-      image && 
-      image.url && 
-      !image.url.includes('example.com') &&
-      !image.url.startsWith('@')
+    const validImages = images.filter(
+      (image) =>
+        image &&
+        image.url &&
+        !image.url.includes("example.com") &&
+        !image.url.startsWith("@")
     );
 
     // If no valid images remain after filtering, don't render anything
@@ -420,7 +428,9 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                 style={{
                   paddingHorizontal: 6,
                   paddingVertical: 4,
-                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
+                  backgroundColor: theme.isDark
+                    ? "rgba(40,42,58,0.8)"
+                    : "rgba(255,255,255,0.8)",
                   borderRadius: 12,
                 }}
               >
@@ -431,7 +441,9 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                 style={{
                   paddingHorizontal: 6,
                   paddingVertical: 4,
-                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
+                  backgroundColor: theme.isDark
+                    ? "rgba(40,42,58,0.8)"
+                    : "rgba(255,255,255,0.8)",
                   borderRadius: 12,
                   display: "flex",
                   alignItems: "center",
@@ -448,7 +460,9 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                 style={{
                   paddingHorizontal: 6,
                   paddingVertical: 4,
-                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
+                  backgroundColor: theme.isDark
+                    ? "rgba(40,42,58,0.8)"
+                    : "rgba(255,255,255,0.8)",
                   borderRadius: 12,
                   minWidth: 24,
                   minHeight: 24,
@@ -457,7 +471,11 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
                   justifyContent: "center",
                 }}
               >
-                <Ionicons name="volume-medium" size={16} color={theme.primary} />
+                <Ionicons
+                  name="volume-medium"
+                  size={16}
+                  color={theme.primary}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -553,7 +571,9 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   const styles = StyleSheet.create({
     modalContainer: {
       flex: 1,
-      backgroundColor: theme.isDark ? "rgba(0, 0, 0, 0.95)" : "rgba(0, 0, 0, 0.9)",
+      backgroundColor: theme.isDark
+        ? "rgba(0, 0, 0, 0.95)"
+        : "rgba(0, 0, 0, 0.9)",
       justifyContent: "center",
       alignItems: "center",
     },
@@ -930,7 +950,9 @@ function HomeScreen() {
   const fetchMalls = async () => {
     try {
       console.log("Fetching malls from backend...");
-      const data = await API_CONFIG.fetchWithLogging(API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.MALLS));
+      const data = await API_CONFIG.fetchWithLogging(
+        API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.MALLS)
+      );
       console.log("Malls data:", JSON.stringify(data));
       setMalls(data);
       if (!selectedMall && data.length > 0) {
@@ -952,11 +974,13 @@ function HomeScreen() {
   useEffect(() => {
     // Initialize voice recognition once on component mount
     const setupVoiceRecognition = async () => {
-      console.log("Setting up speech recognition with SpeechRecognitionManager");
-      
+      console.log(
+        "Setting up speech recognition with SpeechRecognitionManager"
+      );
+
       // Initialize the manager
       await SpeechRecognitionManager.initialize();
-      
+
       // Initial setup
       SpeechRecognitionManager.setCallbacks({
         onSpeechStart: () => {
@@ -969,12 +993,13 @@ function HomeScreen() {
         },
         onSpeechResults: (transcribedText) => {
           console.log("Main initial: Speech results:", transcribedText);
+          setIsRecognizing(false);
           setMessage(transcribedText);
         },
         onSpeechError: (error) => {
           console.error("Main initial: Speech error:", error);
           setIsRecognizing(false);
-        }
+        },
       });
     };
 
@@ -1007,11 +1032,14 @@ function HomeScreen() {
 
   const startRecording = async () => {
     try {
-      console.log("Starting voice recording directly with CustomSpeechRecognition...");
-      
+      console.log(
+        "Starting voice recording directly with CustomSpeechRecognition..."
+      );
+
       // Import the direct implementation
-      const CustomSpeechRecognition = require('./helpers/CustomSpeechRecognition').default;
-      
+      const CustomSpeechRecognition =
+        require("./helpers/CustomSpeechRecognition").default;
+
       // Setup callbacks
       CustomSpeechRecognition.setCallbacks({
         onSpeechStart: () => {
@@ -1024,23 +1052,30 @@ function HomeScreen() {
         },
         onSpeechResults: (transcribedText) => {
           console.log("Main: Speech results:", transcribedText);
+          setIsRecognizing(false);
           setMessage(transcribedText);
         },
         onSpeechError: (error) => {
           console.error("Main: Speech error:", error);
           setIsRecognizing(false);
-          
+
           // Provide more user-friendly error message
-          let errorMessage = language === "ar"
-            ? "عذراً، لم أتمكن من فهم المدخلات الصوتية. يرجى المحاولة مرة أخرى."
-            : "Sorry, I couldn't understand your voice input. Please try again.";
-            
-          if (error && error.message && error.message.includes("Google app not installed")) {
-            errorMessage = language === "ar"
-              ? "يرجى التأكد من تثبيت تطبيق Google للاستفادة من ميزة التعرف على الكلام."
-              : "Please make sure Google app is installed to use speech recognition.";
+          let errorMessage =
+            language === "ar"
+              ? "عذراً، لم أتمكن من فهم المدخلات الصوتية. يرجى المحاولة مرة أخرى."
+              : "Sorry, I couldn't understand your voice input. Please try again.";
+
+          if (
+            error &&
+            error.message &&
+            error.message.includes("Google app not installed")
+          ) {
+            errorMessage =
+              language === "ar"
+                ? "يرجى التأكد من تثبيت تطبيق Google للاستفادة من ميزة التعرف على الكلام."
+                : "Please make sure Google app is installed to use speech recognition.";
           }
-          
+
           setMessages((prev) => [
             ...prev,
             {
@@ -1057,35 +1092,42 @@ function HomeScreen() {
             () => scrollViewRef.current?.scrollToEnd({ animated: true }),
             100
           );
-        }
+        },
       });
-      
+
       // Set UI state before starting
       setIsRecognizing(true);
-      
+
       // Configure language for speech recognition
       // Arabic language code is 'ar-SA' for Saudi Arabia, adjust as needed
       const languageOption = language === "ar" ? "ar-SA" : "en-US";
-      console.log(`Starting voice recognition with language: ${languageOption}`);
-      
+      console.log(
+        `Starting voice recognition with language: ${languageOption}`
+      );
+
       // Start recognition
       try {
         await CustomSpeechRecognition.startListening(languageOption);
       } catch (recognitionError) {
         console.error("Recognition error:", recognitionError);
         setIsRecognizing(false);
-        
+
         // Show more specific error to the user based on the error
-        let errorMessage = language === "ar"
-          ? "حدث خطأ عند محاولة استخدام التعرف على الكلام. يرجى التأكد من أن تطبيق Google مثبت ولديك اتصال بالإنترنت."
-          : "There was an error trying to use speech recognition. Please make sure Google app is installed and you have internet connection.";
-        
-        if (recognitionError.message && recognitionError.message.includes("permission")) {
-          errorMessage = language === "ar"
-            ? "تم رفض إذن الميكروفون. يرجى السماح للتطبيق باستخدام الميكروفون في إعدادات الجهاز."
-            : "Microphone permission denied. Please allow the app to use the microphone in device settings.";
+        let errorMessage =
+          language === "ar"
+            ? "حدث خطأ عند محاولة استخدام التعرف على الكلام. يرجى التأكد من أن تطبيق Google مثبت ولديك اتصال بالإنترنت."
+            : "There was an error trying to use speech recognition. Please make sure Google app is installed and you have internet connection.";
+
+        if (
+          recognitionError.message &&
+          recognitionError.message.includes("permission")
+        ) {
+          errorMessage =
+            language === "ar"
+              ? "تم رفض إذن الميكروفون. يرجى السماح للتطبيق باستخدام الميكروفون في إعدادات الجهاز."
+              : "Microphone permission denied. Please allow the app to use the microphone in device settings.";
         }
-        
+
         setMessages((prev) => [
           ...prev,
           {
@@ -1098,7 +1140,7 @@ function HomeScreen() {
             }),
           },
         ]);
-        
+
         setTimeout(
           () => scrollViewRef.current?.scrollToEnd({ animated: true }),
           100
@@ -1118,14 +1160,15 @@ function HomeScreen() {
   };
 
   const stopRecording = async () => {
+    setIsRecognizing(false);
     if (!isRecognizing) return;
 
     try {
       console.log("Stopping voice recording using CustomSpeechRecognition");
-      setIsRecognizing(false); // Set this first to update UI immediately
-      
+
       // Import the direct implementation
-      const CustomSpeechRecognition = require('./helpers/CustomSpeechRecognition').default;
+      const CustomSpeechRecognition =
+        require("./helpers/CustomSpeechRecognition").default;
       await CustomSpeechRecognition.stopListening();
     } catch (error) {
       console.error("Speech recognition stop error:", error);
@@ -1142,24 +1185,24 @@ function HomeScreen() {
 
     try {
       console.log(`Requesting TTS for text: "${text.substring(0, 50)}..."`);
-      
+
       // Set loading states
       setLoadingTTS(true);
       if (messageId) {
         setPlayingMessageId(messageId);
       }
-      
+
       // Log the request details for debugging
-      console.log('TTS Request:', { 
+      console.log("TTS Request:", {
         url: API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS),
-        language, 
-        textLength: text.length
+        language,
+        textLength: text.length,
       });
-      
+
       let data;
       try {
         data = await API_CONFIG.fetchWithLogging(
-          API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS), 
+          API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1168,23 +1211,26 @@ function HomeScreen() {
         );
       } catch (apiError) {
         console.error("TTS API Error:", apiError);
-        throw new Error("Failed to fetch audio from server: " + (apiError.message || "Unknown error"));
+        throw new Error(
+          "Failed to fetch audio from server: " +
+            (apiError.message || "Unknown error")
+        );
       }
-      
+
       // Handle case where the server returns a success response but without audio data
       if (!data || !data.audio_base64) {
         console.error("TTS API returned no audio data");
         throw new Error("No audio data received from server");
       }
-      
+
       // Log the response status
-      console.log('TTS Response received:', { 
+      console.log("TTS Response received:", {
         hasAudio: !!data.audio_base64,
-        audioLength: data.audio_base64 ? data.audio_base64.length : 0
+        audioLength: data.audio_base64 ? data.audio_base64.length : 0,
       });
-      
+
       const audioBase64 = data.audio_base64;
-      
+
       // Validate the base64 string
       if (!/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
         console.error("Invalid base64 data received");
@@ -1200,37 +1246,48 @@ function HomeScreen() {
         console.error("Error creating sound object:", soundError);
         throw new Error("Failed to initialize audio player");
       }
-      
+
       // Debug the audio URI
       const audioUri = `data:audio/mpeg;base64,${audioBase64}`;
-      console.log('Loading audio with URI length:', audioUri.length);
+      console.log("Loading audio with URI length:", audioUri.length);
 
       try {
-        console.log('Loading audio...');
+        console.log("Loading audio...");
         await sound.loadAsync({ uri: audioUri });
-        
-        console.log('Playing audio...');
+
+        console.log("Playing audio...");
         const playbackStatus = await sound.playAsync();
-        console.log('Playback started:', playbackStatus);
-        
+        console.log("Playback started:", playbackStatus);
+
         sound.setOnPlaybackStatusUpdate((status) => {
-          console.log('Playback status:', status.isLoaded ? 
-            { isPlaying: status.isPlaying, positionMillis: status.positionMillis, durationMillis: status.durationMillis, didJustFinish: status.didJustFinish } : 
-            { isLoaded: false }
+          console.log(
+            "Playback status:",
+            status.isLoaded
+              ? {
+                  isPlaying: status.isPlaying,
+                  positionMillis: status.positionMillis,
+                  durationMillis: status.durationMillis,
+                  didJustFinish: status.didJustFinish,
+                }
+              : { isLoaded: false }
           );
-          
+
           if (status.isLoaded) {
             const loadedStatus = status;
             if (loadedStatus.didJustFinish) {
-              console.log('Playback finished');
+              console.log("Playback finished");
               setPlayingMessageId(null);
-              sound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
+              sound
+                .unloadAsync()
+                .catch((err) => console.error("Error unloading sound:", err));
               activeSoundRef.current = null;
             }
           } else {
-            console.log('Playback unloaded');
+            console.log("Playback unloaded");
             setPlayingMessageId(null);
-            sound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
+            sound
+              .unloadAsync()
+              .catch((err) => console.error("Error unloading sound:", err));
             activeSoundRef.current = null;
           }
         });
@@ -1240,7 +1297,10 @@ function HomeScreen() {
           try {
             await sound.unloadAsync();
           } catch (unloadError) {
-            console.error("Error unloading sound after playback failure:", unloadError);
+            console.error(
+              "Error unloading sound after playback failure:",
+              unloadError
+            );
           }
         }
         activeSoundRef.current = null;
@@ -1251,7 +1311,7 @@ function HomeScreen() {
       console.error("TTS Error:", error);
       // Clear the playing message ID to remove the loading state
       setPlayingMessageId(null);
-      
+
       // Show an error toast or message
       Alert.alert(
         language === "ar" ? "خطأ في تشغيل الصوت" : "Audio Playback Error",
@@ -1282,6 +1342,12 @@ function HomeScreen() {
     setMessage("");
     setIsTyping(true);
 
+    // Scroll to end after user message
+    setTimeout(
+      () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+      100
+    );
+
     try {
       const backendUrl = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT);
       const requestBody = {
@@ -1293,7 +1359,7 @@ function HomeScreen() {
       };
 
       console.log(`Sending message to backend: ${JSON.stringify(requestBody)}`);
-      
+
       const data = await API_CONFIG.fetchWithLogging(backendUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1332,15 +1398,18 @@ function HomeScreen() {
         try {
           // Stop any current playback first
           await stopTTS();
-          
+
           // Set loading state
           setLoadingTTS(true);
           setPlayingMessageId(botResponse.id);
-          
-          console.log('Auto-play TTS: Processing audio from response');
+
+          console.log("Auto-play TTS: Processing audio from response");
 
           // Validate the base64 string
-          if (!data.audio_base64 || !/^[A-Za-z0-9+/=]+$/.test(data.audio_base64)) {
+          if (
+            !data.audio_base64 ||
+            !/^[A-Za-z0-9+/=]+$/.test(data.audio_base64)
+          ) {
             console.error("Auto-play TTS: Invalid base64 data received");
             throw new Error("Invalid audio data received from server");
           }
@@ -1351,33 +1420,45 @@ function HomeScreen() {
             autoPlaySound = new Audio.Sound();
             activeSoundRef.current = autoPlaySound;
           } catch (soundError) {
-            console.error("Auto-play TTS: Error creating sound object:", soundError);
+            console.error(
+              "Auto-play TTS: Error creating sound object:",
+              soundError
+            );
             throw new Error("Failed to initialize audio player");
           }
-          
+
           const audioUri = `data:audio/mpeg;base64,${data.audio_base64}`;
-          console.log('Auto-play TTS: Loading audio with length:', data.audio_base64.length);
-          
+          console.log(
+            "Auto-play TTS: Loading audio with length:",
+            data.audio_base64.length
+          );
+
           try {
             await autoPlaySound.loadAsync({ uri: audioUri });
-            console.log('Auto-play TTS: Audio loaded successfully');
-            
+            console.log("Auto-play TTS: Audio loaded successfully");
+
             const playbackStatus = await autoPlaySound.playAsync();
-            console.log('Auto-play TTS: Playback started:', playbackStatus);
-            
+            console.log("Auto-play TTS: Playback started:", playbackStatus);
+
             autoPlaySound.setOnPlaybackStatusUpdate((status) => {
               if (status.isLoaded) {
                 const loadedStatus = status;
                 if (loadedStatus.didJustFinish) {
-                  console.log('Auto-play TTS: Playback finished');
+                  console.log("Auto-play TTS: Playback finished");
                   setPlayingMessageId(null);
-                  autoPlaySound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
+                  autoPlaySound
+                    .unloadAsync()
+                    .catch((err) =>
+                      console.error("Error unloading sound:", err)
+                    );
                   activeSoundRef.current = null;
                 }
               } else {
-                console.log('Auto-play TTS: Playback unloaded');
+                console.log("Auto-play TTS: Playback unloaded");
                 setPlayingMessageId(null);
-                autoPlaySound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
+                autoPlaySound
+                  .unloadAsync()
+                  .catch((err) => console.error("Error unloading sound:", err));
                 activeSoundRef.current = null;
               }
             });
@@ -1387,7 +1468,10 @@ function HomeScreen() {
               try {
                 await autoPlaySound.unloadAsync();
               } catch (unloadError) {
-                console.error("Auto-play TTS: Error unloading sound after failure:", unloadError);
+                console.error(
+                  "Auto-play TTS: Error unloading sound after failure:",
+                  unloadError
+                );
               }
             }
             activeSoundRef.current = null;
@@ -1398,7 +1482,9 @@ function HomeScreen() {
           console.error("Auto-play TTS Error:", error);
           setPlayingMessageId(null);
           // Don't show alert for auto-play errors to avoid disrupting the flow
-          console.log("Auto-play TTS failed silently, user can still manually play audio if needed");
+          console.log(
+            "Auto-play TTS failed silently, user can still manually play audio if needed"
+          );
         } finally {
           setLoadingTTS(false);
         }
@@ -1420,10 +1506,6 @@ function HomeScreen() {
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
-      setTimeout(
-        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-        100
-      );
     }
   };
 
@@ -1496,23 +1578,23 @@ function HomeScreen() {
 
   // Function to stop any currently playing TTS
   const stopTTS = async () => {
-    console.log('Stopping TTS playback');
+    console.log("Stopping TTS playback");
     if (activeSoundRef.current) {
       try {
-        console.log('Active sound found, stopping...');
+        console.log("Active sound found, stopping...");
         // First stop the playback
-        await activeSoundRef.current.stopAsync().catch(err => 
-          console.log('Error stopping sound:', err)
-        );
-        
+        await activeSoundRef.current
+          .stopAsync()
+          .catch((err) => console.log("Error stopping sound:", err));
+
         // Then unload the sound
-        await activeSoundRef.current.unloadAsync().catch(err => 
-          console.log('Error unloading sound:', err)
-        );
-        
-        console.log('Sound stopped and unloaded successfully');
+        await activeSoundRef.current
+          .unloadAsync()
+          .catch((err) => console.log("Error unloading sound:", err));
+
+        console.log("Sound stopped and unloaded successfully");
         activeSoundRef.current = null;
-        
+
         // Always reset the playingMessageId when stopping
         setPlayingMessageId(null);
         // Reset loading state
@@ -1525,7 +1607,7 @@ function HomeScreen() {
         setLoadingTTS(false);
       }
     } else {
-      console.log('No active sound to stop');
+      console.log("No active sound to stop");
       // Always reset these states
       setPlayingMessageId(null);
       setLoadingTTS(false);
@@ -1534,9 +1616,9 @@ function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <StatusBar 
-        barStyle={theme.isDark ? "light-content" : "dark-content"} 
-        backgroundColor={theme.headerBg} 
+      <StatusBar
+        barStyle={theme.isDark ? "light-content" : "dark-content"}
+        backgroundColor={theme.headerBg}
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -1569,12 +1651,12 @@ function HomeScreen() {
               {/* Logo with light/dark mode support */}
               <View
                 style={{
-                  backgroundColor: 'transparent',
+                  backgroundColor: "transparent",
                   padding: theme.isDark ? 8 : 0,
                   borderRadius: theme.isDark ? 8 : 0,
                 }}
               >
-                <Logo 
+                <Logo
                   style={{
                     opacity: theme.isDark ? 1 : 1,
                   }}
@@ -1599,7 +1681,7 @@ function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
               {/* Theme toggle button */}
               <TouchableOpacity
                 onPress={toggleTheme}
@@ -1617,7 +1699,7 @@ function HomeScreen() {
                   color={theme.text}
                 />
               </TouchableOpacity>
-              
+
               {/* Language toggle button */}
               <TouchableOpacity
                 onPress={toggleLanguage}
@@ -1764,9 +1846,6 @@ function HomeScreen() {
                 padding: 15,
                 paddingBottom: 20,
               }}
-              onContentSizeChange={() =>
-                scrollViewRef.current?.scrollToEnd({ animated: true })
-              }
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -1848,7 +1927,7 @@ function HomeScreen() {
                 <MotiView
                   from={{ opacity: 0, translateY: 10 }}
                   animate={{ opacity: 1, translateY: 0 }}
-                  transition={{ type: 'spring', stiffness: 150, damping: 15 }}
+                  transition={{ type: "spring", stiffness: 150, damping: 15 }}
                   style={{
                     marginBottom: 15,
                     alignItems: "flex-start",
