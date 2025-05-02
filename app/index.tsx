@@ -185,15 +185,12 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
 
   // Function to handle play TTS with loading state
   const handlePlayTTS = async (text, id) => {
-    setMessageLoadingTTS(true);
+    setMessageLoadingTTS(true); // Show spinner immediately
     try {
-      console.log("AnimatedMessage: Starting TTS for message ID:", id);
       await onPlay(text, id);
+      // Do NOT setMessageLoadingTTS(false) here; let useEffect handle it when playback starts
     } catch (error) {
-      console.error("AnimatedMessage: Error playing TTS:", error);
-    } finally {
-      console.log("AnimatedMessage: Finished TTS request for message ID:", id);
-      setMessageLoadingTTS(false);
+      setMessageLoadingTTS(false); // Hide spinner on error
     }
   };
 
@@ -202,15 +199,12 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
     messageLoadingTTS || (loadingTTS && playingId === msg.id);
   const isThisMessagePlaying = playingId === msg.id;
 
-  // Log the status of this message
+  // Hide spinner as soon as playback starts
   useEffect(() => {
-    if (isThisMessageLoading) {
-      console.log(`Message ${msg.id} is in loading state`);
+    if (isThisMessagePlaying && messageLoadingTTS) {
+      setMessageLoadingTTS(false);
     }
-    if (isThisMessagePlaying) {
-      console.log(`Message ${msg.id} is currently playing`);
-    }
-  }, [isThisMessageLoading, isThisMessagePlaying, msg.id]);
+  }, [isThisMessagePlaying]);
 
   // Function to handle image load errors
   const handleImageError = (imageIndex) => {
@@ -422,21 +416,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
               zIndex: 10,
             }}
           >
-            {isThisMessagePlaying ? (
-              <TouchableOpacity
-                onPress={() => onStop()}
-                style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 4,
-                  backgroundColor: theme.isDark
-                    ? "rgba(40,42,58,0.8)"
-                    : "rgba(255,255,255,0.8)",
-                  borderRadius: 12,
-                }}
-              >
-                <Ionicons name="stop" size={16} color={theme.primary} />
-              </TouchableOpacity>
-            ) : isThisMessageLoading ? (
+            {isThisMessageLoading ? (
               <View
                 style={{
                   paddingHorizontal: 6,
@@ -454,6 +434,20 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
               >
                 <ActivityIndicator size="small" color={theme.primary} />
               </View>
+            ) : isThisMessagePlaying ? (
+              <TouchableOpacity
+                onPress={() => onStop()}
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 4,
+                  backgroundColor: theme.isDark
+                    ? "rgba(40,42,58,0.8)"
+                    : "rgba(255,255,255,0.8)",
+                  borderRadius: 12,
+                }}
+              >
+                <Ionicons name="stop" size={16} color={theme.primary} />
+              </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 onPress={() => handlePlayTTS(msg.text, msg.id)}
