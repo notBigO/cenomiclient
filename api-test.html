@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cenomi API Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .log {
+      background-color: #f5f5f5;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+      height: 300px;
+      overflow: auto;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    button {
+      background-color: #6C5CE7;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cenomi API Connection Test</h1>
+  <p>This page tests if your app can connect to the Cenomi backend API.</p>
+  
+  <div>
+    <button id="testMalls">Test Malls API</button>
+    <button id="testChat">Test Chat API</button>
+    <button id="testTTS">Test TTS API</button>
+    <button id="clearLog">Clear Log</button>
+  </div>
+  
+  <h3>Test Log:</h3>
+  <div id="log" class="log"></div>
+
+  <script>
+    // API Configuration
+    const API_CONFIG = {
+      PROD_BASE_URL: 'http://40.172.7.59:8000',
+      
+      ENDPOINTS: {
+        CHAT: '/chat',
+        TTS: '/tts',
+        MALLS: '/malls',
+        LOGIN: '/login'
+      },
+      
+      getUrl(endpoint) {
+        return `${this.PROD_BASE_URL}${endpoint}`;
+      }
+    };
+
+    // Log function
+    function log(message, type = 'info') {
+      const logElement = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = type;
+      entry.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+      logElement.appendChild(entry);
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    // Test Malls API
+    document.getElementById('testMalls').addEventListener('click', async () => {
+      log('Testing Malls API...');
+      
+      try {
+        const url = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.MALLS);
+        log(`Requesting: ${url}`);
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        log(`Success! Received ${data.length} malls.`, 'success');
+        log(`Mall data: ${JSON.stringify(data)}`, 'success');
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Test Chat API
+    document.getElementById('testChat').addEventListener('click', async () => {
+      log('Testing Chat API...');
+      
+      try {
+        const url = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT);
+        log(`Requesting: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: 'Hello',
+            mall_id: 1457,
+            language: 'en'
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        log('Chat response received!', 'success');
+        log(`Message: ${data.message}`, 'success');
+        log(`Has images: ${data.images && data.images.length > 0 ? 'Yes' : 'No'}`, 'success');
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Test TTS API
+    document.getElementById('testTTS').addEventListener('click', async () => {
+      log('Testing TTS API...');
+      
+      try {
+        const url = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS);
+        log(`Requesting: ${url}`);
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: 'Hello, this is a test of text-to-speech',
+            language: 'en'
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        log('TTS response received!', 'success');
+        log(`Audio received: ${data.audio_base64 ? 'Yes' : 'No'}`, 'success');
+        
+        if (data.audio_base64) {
+          const audio = new Audio(`data:audio/mpeg;base64,${data.audio_base64}`);
+          audio.play();
+          log('Playing audio...', 'success');
+        }
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    });
+
+    // Clear Log
+    document.getElementById('clearLog').addEventListener('click', () => {
+      document.getElementById('log').innerHTML = '';
+    });
+    
+    // Initial log
+    log('API Test page loaded. Click a button to test API connectivity.');
+  </script>
+</body>
+</html> 

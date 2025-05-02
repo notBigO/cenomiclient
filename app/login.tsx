@@ -9,7 +9,6 @@ import {
   Platform,
   StatusBar,
   Dimensions,
-  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +17,8 @@ import { useFonts } from "expo-font";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
 import axios from "axios";
+import API_CONFIG from "./config/api.js";
+import Logo from "./components/Logo";
 
 const { width } = Dimensions.get("window");
 
@@ -108,14 +109,21 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://192.168.0.23:8000/login", {
-        email,
-        password,
+      console.log(`Attempting login for email: ${email}`);
+      const loginUrl = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.LOGIN);
+      
+      const data = await API_CONFIG.fetchWithLogging(loginUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
-      const { user_id } = response.data;
+      
+      const { user_id } = data;
+      console.log(`Login successful for user ID: ${user_id}`);
       await AsyncStorage.setItem("user_id", user_id);
       router.push("/");
     } catch (error) {
+      console.error("Login failed:", error);
       setError(
         language === "en" ? "Invalid credentials" : "بيانات اعتماد غير صالحة"
       );
@@ -188,12 +196,13 @@ export default function LoginScreen() {
                 color={currentTheme.text}
               />
             </TouchableOpacity>
-            <Image
-              source={require("../assets/logo.png")}
-              style={{
+            <Logo
+              size={{
                 width: 100,
                 height: 30,
-                resizeMode: "contain",
+              }}
+              style={{
+                opacity: isDarkMode ? 0.95 : 1,
               }}
             />
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -275,7 +284,7 @@ export default function LoginScreen() {
               </Text>
             </MotiView>
 
-            <View style={{ marginBottom: 20, spaceY: 16 }}>
+            <View style={{ marginBottom: 20 }}>
               {/* Email Input */}
               <View style={{ marginBottom: 16 }}>
                 <Text

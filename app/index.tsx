@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, createContext, useContext } from "react";
 import {
   View,
   Text,
@@ -20,13 +20,14 @@ import {
   Animated,
   Keyboard,
   TouchableWithoutFeedback,
+  Alert,
+  useColorScheme,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts } from "expo-font";
 import { MotiView } from "moti";
 import { Audio } from "expo-av";
-import Voice from "@react-native-voice/voice";
 import Reanimated, {
   useAnimatedGestureHandler,
   useAnimatedStyle,
@@ -38,8 +39,15 @@ import {
   TapGestureHandler,
   State,
 } from "react-native-gesture-handler";
+import API_CONFIG from "./config/api.js";
+import SpeechRecognitionManager from "./helpers/SpeechRecognitionManager.js";
+import { ThemeProvider, ThemeContext } from "./contexts/ThemeContext";
+import Logo from "./components/Logo";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+
+// Custom hook to use the theme
+const useTheme = () => useContext(ThemeContext);
 
 // Markdown renderer component
 const MarkdownText = ({ text, style }) => {
@@ -69,40 +77,67 @@ const MarkdownText = ({ text, style }) => {
 };
 
 // Typing Indicator Component
-const TypingIndicator = () => (
-  <View style={{ flexDirection: "row", padding: 10, alignItems: "center" }}>
-    <View
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#303342",
-        marginHorizontal: 2,
-        opacity: 0.4,
-      }}
-    />
-    <View
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#303342",
-        marginHorizontal: 2,
-        opacity: 0.7,
-      }}
-    />
-    <View
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#303342",
-        marginHorizontal: 2,
-        opacity: 1,
-      }}
-    />
-  </View>
-);
+const TypingIndicator = () => {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flexDirection: "row", padding: 10, alignItems: "center" }}>
+      <MotiView
+        from={{ opacity: 0.4, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          type: "timing",
+          duration: 600,
+          loop: true,
+          repeatReverse: true,
+          delay: 0,
+        }}
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: theme.text,
+          marginHorizontal: 3,
+        }}
+      />
+      <MotiView
+        from={{ opacity: 0.4, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          type: "timing",
+          duration: 600,
+          loop: true,
+          repeatReverse: true,
+          delay: 200,
+        }}
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: theme.text,
+          marginHorizontal: 3,
+        }}
+      />
+      <MotiView
+        from={{ opacity: 0.4, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{
+          type: "timing",
+          duration: 600,
+          loop: true,
+          repeatReverse: true,
+          delay: 400,
+        }}
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: theme.text,
+          marginHorizontal: 3,
+        }}
+      />
+    </View>
+  );
+};
 
 // Fix the type error by defining props interface
 // Animated Message Component Props Interface
@@ -120,6 +155,7 @@ interface AnimatedMessageProps {
   index: number;
   language: string;
   playingId: number | null;
+  loadingTTS: boolean;
   onPlay: (text: string, id: number) => void;
   onStop: () => void;
 }
@@ -130,13 +166,44 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
   index,
   language,
   playingId,
+  loadingTTS,
   onPlay,
   onStop,
 }) => {
+  const { theme } = useTheme();
   // State for tracking images loading and errors
   const [imageLoadError, setImageLoadError] = useState({});
   const [selectedImage, setSelectedImage] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [messageLoadingTTS, setMessageLoadingTTS] = useState(false);
+
+  // Function to handle play TTS with loading state
+  const handlePlayTTS = async (text, id) => {
+    setMessageLoadingTTS(true);
+    try {
+      console.log('AnimatedMessage: Starting TTS for message ID:', id);
+      await onPlay(text, id);
+    } catch (error) {
+      console.error('AnimatedMessage: Error playing TTS:', error);
+    } finally {
+      console.log('AnimatedMessage: Finished TTS request for message ID:', id);
+      setMessageLoadingTTS(false);
+    }
+  };
+
+  // Determine if this specific message is in loading state
+  const isThisMessageLoading = messageLoadingTTS || (loadingTTS && playingId === msg.id);
+  const isThisMessagePlaying = playingId === msg.id;
+
+  // Log the status of this message
+  useEffect(() => {
+    if (isThisMessageLoading) {
+      console.log(`Message ${msg.id} is in loading state`);
+    }
+    if (isThisMessagePlaying) {
+      console.log(`Message ${msg.id} is currently playing`);
+    }
+  }, [isThisMessageLoading, isThisMessagePlaying, msg.id]);
 
   // Function to handle image load errors
   const handleImageError = (imageIndex) => {
@@ -313,11 +380,11 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
         transition={{ type: "timing", duration: 200 }}
         style={{
           backgroundColor: msg.isUser
-            ? "#6C5CE7"
+            ? theme.userMessageBg
             : msg.text.includes("only store owners") ||
               msg.text.includes("Invalid tenant")
-            ? "#FFEEF0"
-            : "#F3F3FF",
+            ? theme.errorBg
+            : theme.messageBg,
           borderRadius: 20,
           paddingVertical: 12,
           paddingHorizontal: 16,
@@ -336,29 +403,50 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
               zIndex: 10,
             }}
           >
-            {playingId === msg.id ? (
+            {isThisMessagePlaying ? (
               <TouchableOpacity
                 onPress={() => onStop()}
                 style={{
                   paddingHorizontal: 6,
                   paddingVertical: 4,
-                  backgroundColor: "rgba(255,255,255,0.8)",
+                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
                   borderRadius: 12,
                 }}
               >
-                <Ionicons name="stop" size={16} color="#6C5CE7" />
+                <Ionicons name="stop" size={16} color={theme.primary} />
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={() => onPlay(msg.text, msg.id)}
+            ) : isThisMessageLoading ? (
+              <View
                 style={{
                   paddingHorizontal: 6,
                   paddingVertical: 4,
-                  backgroundColor: "rgba(255,255,255,0.8)",
+                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
                   borderRadius: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 24,
+                  minHeight: 24,
                 }}
               >
-                <Ionicons name="volume-medium" size={16} color="#6C5CE7" />
+                <ActivityIndicator size="small" color={theme.primary} />
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => handlePlayTTS(msg.text, msg.id)}
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 4,
+                  backgroundColor: theme.isDark ? "rgba(40,42,58,0.8)" : "rgba(255,255,255,0.8)",
+                  borderRadius: 12,
+                  minWidth: 24,
+                  minHeight: 24,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="volume-medium" size={16} color={theme.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -367,7 +455,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
         {msg.isUser ? (
           <Text
             style={{
-              color: "#FFFFFF",
+              color: theme.userMessageText,
               fontFamily: "Poppins-Regular",
               fontSize: 15,
               lineHeight: 22,
@@ -381,7 +469,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
             <MarkdownText
               text={msg.text}
               style={{
-                color: "#303342",
+                color: theme.text,
                 fontFamily: "Poppins-Regular",
                 fontSize: 15,
                 lineHeight: 22,
@@ -398,7 +486,7 @@ const AnimatedMessage: React.FC<AnimatedMessageProps> = ({
       {msg.timestamp && (
         <Text
           style={{
-            color: "#A0A0B9",
+            color: theme.placeholder,
             fontSize: 11,
             marginTop: 4,
             marginHorizontal: 4,
@@ -432,6 +520,7 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   imageUrl,
   onClose,
 }) => {
+  const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [zoomPercentage, setZoomPercentage] = useState("100%");
@@ -448,6 +537,110 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   // Constants for zoom
   const minZoom = 0.5;
   const maxZoom = 2;
+
+  // Create styles with theme access
+  const styles = StyleSheet.create({
+    modalContainer: {
+      flex: 1,
+      backgroundColor: theme.isDark ? "rgba(0, 0, 0, 0.95)" : "rgba(0, 0, 0, 0.9)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    closeButton: {
+      position: "absolute",
+      top: Platform.OS === "ios" ? 50 : 30,
+      right: 20,
+      zIndex: 10,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      borderRadius: 20,
+      padding: 10,
+    },
+    topEmptyArea: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: "25%",
+      width: "100%",
+    },
+    bottomEmptyArea: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: "25%",
+      width: "100%",
+    },
+    imageContainer: {
+      width: "100%",
+      height: "50%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    touchContainer: {
+      width: "100%",
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "hidden",
+    },
+    image: {
+      width: screenWidth * 0.9,
+      height: screenHeight * 0.4,
+      maxWidth: screenWidth * 0.9,
+      maxHeight: screenHeight * 0.4,
+    },
+    loader: {
+      position: "absolute",
+    },
+    errorContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    errorText: {
+      color: "white",
+      marginTop: 10,
+      fontFamily: "Poppins-Regular",
+    },
+    zoomControls: {
+      position: "absolute",
+      bottom: Platform.OS === "ios" ? 80 : 60,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      borderRadius: 20,
+      padding: 5,
+    },
+    zoomButton: {
+      width: 40,
+      height: 40,
+      justifyContent: "center",
+      alignItems: "center",
+      borderRadius: 20,
+    },
+    zoomTextContainer: {
+      minWidth: 60,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    zoomText: {
+      color: "white",
+      fontFamily: "Poppins-Regular",
+      fontSize: 14,
+    },
+    instructions: {
+      color: "white",
+      position: "absolute",
+      bottom: Platform.OS === "ios" ? 40 : 20,
+      textAlign: "center",
+      fontSize: 12,
+      opacity: 0.7,
+      fontFamily: "Poppins-Regular",
+      width: "100%",
+      paddingHorizontal: 20,
+    },
+  });
 
   // Function to update zoom percentage
   const updateZoomPercentage = (newScale) => {
@@ -640,110 +833,16 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  closeButton: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 30,
-    right: 20,
-    zIndex: 10,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 20,
-    padding: 10,
-  },
-  topEmptyArea: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "25%",
-    width: "100%",
-  },
-  bottomEmptyArea: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: "25%",
-    width: "100%",
-  },
-  imageContainer: {
-    width: "100%",
-    height: "50%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  touchContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  image: {
-    width: screenWidth * 0.9,
-    height: screenHeight * 0.4,
-    maxWidth: screenWidth * 0.9,
-    maxHeight: screenHeight * 0.4,
-  },
-  loader: {
-    position: "absolute",
-  },
-  errorContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  errorText: {
-    color: "white",
-    marginTop: 10,
-    fontFamily: "Poppins-Regular",
-  },
-  zoomControls: {
-    position: "absolute",
-    bottom: Platform.OS === "ios" ? 80 : 60,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 20,
-    padding: 5,
-  },
-  zoomButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 20,
-  },
-  zoomTextContainer: {
-    minWidth: 60,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  zoomText: {
-    color: "white",
-    fontFamily: "Poppins-Regular",
-    fontSize: 14,
-  },
-  instructions: {
-    color: "white",
-    position: "absolute",
-    bottom: Platform.OS === "ios" ? 40 : 20,
-    textAlign: "center",
-    fontSize: 12,
-    opacity: 0.7,
-    fontFamily: "Poppins-Regular",
-    width: "100%",
-    paddingHorizontal: 20,
-  },
-});
+export default function App() {
+  return (
+    <ThemeProvider>
+      <HomeScreen />
+    </ThemeProvider>
+  );
+}
 
-export default function HomeScreen() {
+function HomeScreen() {
+  const { theme, toggleTheme } = useTheme();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -761,6 +860,8 @@ export default function HomeScreen() {
   const activeSoundRef = useRef(null);
   // Track which message is currently playing
   const [playingMessageId, setPlayingMessageId] = useState(null);
+  // Track global TTS loading state
+  const [loadingTTS, setLoadingTTS] = useState(false);
 
   // Display test image component at the top for debugging
   const [showTestImage, setShowTestImage] = useState(false);
@@ -797,23 +898,6 @@ export default function HomeScreen() {
     "Poppins-SemiBold": require("../assets/fonts/Poppins-SemiBold.ttf"),
   });
 
-  const theme = {
-    background: "#FFFFFF",
-    text: "#303342",
-    primary: "#6C5CE7",
-    secondary: "#F0F0F7",
-    messageBg: "#F3F3FF",
-    userMessageBg: "#6C5CE7",
-    userMessageText: "#FFFFFF",
-    border: "#EAEAEA",
-    placeholder: "#A0A0B9",
-    errorBg: "#FFEEF0",
-    headerBg: "#FFFFFF",
-    tabActive: "#6C5CE7",
-    tabInactive: "#F0F0F7",
-    inputBg: "#F5F5F7",
-  };
-
   const dimensions = Dimensions.get("window");
   const isSmallScreen = dimensions.width < 375;
 
@@ -834,8 +918,9 @@ export default function HomeScreen() {
 
   const fetchMalls = async () => {
     try {
-      const response = await fetch("http://40.172.7.59:8000/malls");
-      const data = await response.json();
+      console.log("Fetching malls from backend...");
+      const data = await API_CONFIG.fetchWithLogging(API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.MALLS));
+      console.log("Malls data:", JSON.stringify(data));
       setMalls(data);
       if (!selectedMall && data.length > 0) {
         setSelectedMall(data[0].mall_id);
@@ -855,53 +940,39 @@ export default function HomeScreen() {
   // Setup Voice recognition listeners
   useEffect(() => {
     // Initialize voice recognition once on component mount
-    // (individual recording sessions will reinitialize as needed)
-    const setupVoiceListeners = () => {
-      Voice.onSpeechStart = () => {
-        console.log("Speech started");
-      };
-      Voice.onSpeechRecognized = () => {
-        console.log("Speech recognized");
-      };
-      Voice.onSpeechEnd = () => {
-        console.log("Speech ended");
-        setIsRecognizing(false);
-      };
-      Voice.onSpeechError = (error) => {
-        console.error("Speech error:", error);
-        setIsRecognizing(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: prev.length + 1,
-            text: "Sorry, I couldn't understand your voice input. Please try again.",
-            isUser: false,
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          },
-        ]);
-        setTimeout(
-          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-          100
-        );
-      };
-      Voice.onSpeechResults = (event) => {
-        if (event.value && event.value.length > 0) {
-          const transcribedText = event.value[0];
-          console.log("Speech results:", transcribedText);
-          // Show transcribed text in input instead of auto-sending
+    const setupVoiceRecognition = async () => {
+      console.log("Setting up speech recognition with SpeechRecognitionManager");
+      
+      // Initialize the manager
+      await SpeechRecognitionManager.initialize();
+      
+      // Initial setup
+      SpeechRecognitionManager.setCallbacks({
+        onSpeechStart: () => {
+          console.log("Main initial: Speech started");
+          setIsRecognizing(true);
+        },
+        onSpeechEnd: () => {
+          console.log("Main initial: Speech ended");
+          setIsRecognizing(false);
+        },
+        onSpeechResults: (transcribedText) => {
+          console.log("Main initial: Speech results:", transcribedText);
           setMessage(transcribedText);
+        },
+        onSpeechError: (error) => {
+          console.error("Main initial: Speech error:", error);
+          setIsRecognizing(false);
         }
-      };
+      });
     };
 
-    setupVoiceListeners();
+    setupVoiceRecognition();
 
     // Cleanup listeners on unmount
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners);
+      console.log("Cleaning up SpeechRecognitionManager");
+      SpeechRecognitionManager.destroy();
     };
   }, []);
 
@@ -925,57 +996,45 @@ export default function HomeScreen() {
 
   const startRecording = async () => {
     try {
-      // Request microphone permission
-      if (permissionResponse.status !== "granted") {
-        const response = await requestPermission();
-        if (response.status !== "granted") {
-          alert(
-            language === "ar"
-              ? "يلزم إذن الميكروفون لإدخال الصوت."
-              : "Microphone permission is required for voice input."
-          );
-          return;
-        }
-      }
-
-      // On Android, we need to check for RECORD_AUDIO permission too
-      if (Platform.OS === "android") {
-        try {
-          const granted = await Voice.isRecognizing();
-          if (granted) {
-            // Already recording, stop it first
-            await Voice.stop();
+      console.log("Starting voice recording directly with CustomSpeechRecognition...");
+      
+      // Import the direct implementation
+      const CustomSpeechRecognition = require('./helpers/CustomSpeechRecognition').default;
+      
+      // Setup callbacks
+      CustomSpeechRecognition.setCallbacks({
+        onSpeechStart: () => {
+          console.log("Main: Speech started");
+          setIsRecognizing(true);
+        },
+        onSpeechEnd: () => {
+          console.log("Main: Speech ended");
+          setIsRecognizing(false);
+        },
+        onSpeechResults: (transcribedText) => {
+          console.log("Main: Speech results:", transcribedText);
+          setMessage(transcribedText);
+        },
+        onSpeechError: (error) => {
+          console.error("Main: Speech error:", error);
+          setIsRecognizing(false);
+          
+          // Provide more user-friendly error message
+          let errorMessage = language === "ar"
+            ? "عذراً، لم أتمكن من فهم المدخلات الصوتية. يرجى المحاولة مرة أخرى."
+            : "Sorry, I couldn't understand your voice input. Please try again.";
+            
+          if (error && error.message && error.message.includes("Google app not installed")) {
+            errorMessage = language === "ar"
+              ? "يرجى التأكد من تثبيت تطبيق Google للاستفادة من ميزة التعرف على الكلام."
+              : "Please make sure Google app is installed to use speech recognition.";
           }
-        } catch (error) {
-          console.error("Failed to check voice recognition status:", error);
-        }
-      }
-
-      // Always ensure we're not already recording and reset voice recognition
-      try {
-        await Voice.destroy();
-        // Reinitialize voice recognition to reset its state
-        Voice.onSpeechStart = () => {
-          console.log("Speech started");
-        };
-        Voice.onSpeechRecognized = () => {
-          console.log("Speech recognized");
-        };
-        Voice.onSpeechEnd = () => {
-          console.log("Speech ended");
-          setIsRecognizing(false);
-        };
-        Voice.onSpeechError = (error) => {
-          console.error("Speech error:", error);
-          setIsRecognizing(false);
+          
           setMessages((prev) => [
             ...prev,
             {
               id: prev.length + 1,
-              text:
-                language === "ar"
-                  ? "عذراً، لم أتمكن من فهم المدخلات الصوتية. يرجى المحاولة مرة أخرى."
-                  : "Sorry, I couldn't understand your voice input. Please try again.",
+              text: errorMessage,
               isUser: false,
               timestamp: new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -987,38 +1046,62 @@ export default function HomeScreen() {
             () => scrollViewRef.current?.scrollToEnd({ animated: true }),
             100
           );
-        };
-        Voice.onSpeechResults = (event) => {
-          if (event.value && event.value.length > 0) {
-            const transcribedText = event.value[0];
-            console.log("Speech results:", transcribedText);
-            setMessage(transcribedText);
-          }
-        };
-      } catch (error) {
-        console.error("Error resetting voice recognition:", error);
-      }
-
-      // Add a small delay to ensure everything is properly reset
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
+        }
+      });
+      
+      // Set UI state before starting
       setIsRecognizing(true);
-
+      
       // Configure language for speech recognition
       // Arabic language code is 'ar-SA' for Saudi Arabia, adjust as needed
       const languageOption = language === "ar" ? "ar-SA" : "en-US";
-      console.log(
-        `Starting voice recognition with language: ${languageOption}`
-      );
-
-      await Voice.start(languageOption);
+      console.log(`Starting voice recognition with language: ${languageOption}`);
+      
+      // Start recognition
+      try {
+        await CustomSpeechRecognition.startListening(languageOption);
+      } catch (recognitionError) {
+        console.error("Recognition error:", recognitionError);
+        setIsRecognizing(false);
+        
+        // Show more specific error to the user based on the error
+        let errorMessage = language === "ar"
+          ? "حدث خطأ عند محاولة استخدام التعرف على الكلام. يرجى التأكد من أن تطبيق Google مثبت ولديك اتصال بالإنترنت."
+          : "There was an error trying to use speech recognition. Please make sure Google app is installed and you have internet connection.";
+        
+        if (recognitionError.message && recognitionError.message.includes("permission")) {
+          errorMessage = language === "ar"
+            ? "تم رفض إذن الميكروفون. يرجى السماح للتطبيق باستخدام الميكروفون في إعدادات الجهاز."
+            : "Microphone permission denied. Please allow the app to use the microphone in device settings.";
+        }
+        
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: prev.length + 1,
+            text: errorMessage,
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
+        
+        setTimeout(
+          () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+          100
+        );
+      }
     } catch (err) {
       console.error("Failed to start speech recognition:", err);
       setIsRecognizing(false);
-      alert(
+      Alert.alert(
+        language === "ar" ? "خطأ" : "Error",
         language === "ar"
           ? "فشل بدء التعرف على الكلام. يرجى المحاولة مرة أخرى."
-          : "Failed to start speech recognition. Please try again."
+          : "Failed to start speech recognition. Please try again.",
+        [{ text: "OK" }]
       );
     }
   };
@@ -1027,10 +1110,16 @@ export default function HomeScreen() {
     if (!isRecognizing) return;
 
     try {
-      await Voice.stop();
-      setIsRecognizing(false);
+      console.log("Stopping voice recording using CustomSpeechRecognition");
+      setIsRecognizing(false); // Set this first to update UI immediately
+      
+      // Import the direct implementation
+      const CustomSpeechRecognition = require('./helpers/CustomSpeechRecognition').default;
+      await CustomSpeechRecognition.stopListening();
     } catch (error) {
       console.error("Speech recognition stop error:", error);
+      // Make sure UI is updated even if there's an error
+      setIsRecognizing(false);
     }
   };
 
@@ -1041,82 +1130,130 @@ export default function HomeScreen() {
     await stopTTS();
 
     try {
-      const response = await fetch("http://40.172.7.59:8000/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, language }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `TTS request failed: ${errorData.detail || response.statusText}`
-        );
-      }
-      const data = await response.json();
-      if (!data.audio_base64) {
-        throw new Error("No audio_base64 data received from TTS endpoint.");
-      }
-      const audioBase64 = data.audio_base64;
-      if (!/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
-        throw new Error("Invalid base64 string received.");
-      }
-
-      const sound = new Audio.Sound();
-      activeSoundRef.current = sound;
-
+      console.log(`Requesting TTS for text: "${text.substring(0, 50)}..."`);
+      
+      // Set loading states
+      setLoadingTTS(true);
       if (messageId) {
         setPlayingMessageId(messageId);
       }
+      
+      // Log the request details for debugging
+      console.log('TTS Request:', { 
+        url: API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS),
+        language, 
+        textLength: text.length
+      });
+      
+      let data;
+      try {
+        data = await API_CONFIG.fetchWithLogging(
+          API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS), 
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, language }),
+          }
+        );
+      } catch (apiError) {
+        console.error("TTS API Error:", apiError);
+        throw new Error("Failed to fetch audio from server: " + (apiError.message || "Unknown error"));
+      }
+      
+      // Handle case where the server returns a success response but without audio data
+      if (!data || !data.audio_base64) {
+        console.error("TTS API returned no audio data");
+        throw new Error("No audio data received from server");
+      }
+      
+      // Log the response status
+      console.log('TTS Response received:', { 
+        hasAudio: !!data.audio_base64,
+        audioLength: data.audio_base64 ? data.audio_base64.length : 0
+      });
+      
+      const audioBase64 = data.audio_base64;
+      
+      // Validate the base64 string
+      if (!/^[A-Za-z0-9+/=]+$/.test(audioBase64)) {
+        console.error("Invalid base64 data received");
+        throw new Error("Invalid audio data received from server");
+      }
+
+      // Create a sound object
+      let sound;
+      try {
+        sound = new Audio.Sound();
+        activeSoundRef.current = sound;
+      } catch (soundError) {
+        console.error("Error creating sound object:", soundError);
+        throw new Error("Failed to initialize audio player");
+      }
+      
+      // Debug the audio URI
+      const audioUri = `data:audio/mpeg;base64,${audioBase64}`;
+      console.log('Loading audio with URI length:', audioUri.length);
 
       try {
-        await sound.loadAsync({ uri: `data:audio/mpeg;base64,${audioBase64}` });
-        await sound.playAsync();
+        console.log('Loading audio...');
+        await sound.loadAsync({ uri: audioUri });
+        
+        console.log('Playing audio...');
+        const playbackStatus = await sound.playAsync();
+        console.log('Playback started:', playbackStatus);
+        
         sound.setOnPlaybackStatusUpdate((status) => {
+          console.log('Playback status:', status.isLoaded ? 
+            { isPlaying: status.isPlaying, positionMillis: status.positionMillis, durationMillis: status.durationMillis, didJustFinish: status.didJustFinish } : 
+            { isLoaded: false }
+          );
+          
           if (status.isLoaded) {
             const loadedStatus = status;
             if (loadedStatus.didJustFinish) {
+              console.log('Playback finished');
               setPlayingMessageId(null);
-              sound.unloadAsync().catch(() => {});
+              sound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
               activeSoundRef.current = null;
             }
           } else {
+            console.log('Playback unloaded');
             setPlayingMessageId(null);
-            sound.unloadAsync().catch(() => {});
+            sound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
             activeSoundRef.current = null;
           }
         });
       } catch (error) {
-        setPlayingMessageId(null);
-        sound.unloadAsync().catch(() => {});
+        console.error("Sound playback error:", error);
+        if (sound) {
+          try {
+            await sound.unloadAsync();
+          } catch (unloadError) {
+            console.error("Error unloading sound after playback failure:", unloadError);
+          }
+        }
         activeSoundRef.current = null;
+        setPlayingMessageId(null);
         throw error;
       }
     } catch (error) {
       console.error("TTS Error:", error);
+      // Clear the playing message ID to remove the loading state
       setPlayingMessageId(null);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: prev.length + 1,
-          text:
-            language === "ar"
-              ? "عذراً، لم أتمكن من تشغيل الاستجابة الصوتية. يرجى المحاولة مرة أخرى."
-              : "Sorry, I couldn't play the audio response. Please try again.",
-          isUser: false,
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        },
-      ]);
-      setTimeout(
-        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-        100
+      
+      // Show an error toast or message
+      Alert.alert(
+        language === "ar" ? "خطأ في تشغيل الصوت" : "Audio Playback Error",
+        language === "ar"
+          ? "عذراً، لم أتمكن من تشغيل الاستجابة الصوتية. يرجى المحاولة مرة أخرى."
+          : "Sorry, I couldn't play the audio response. Please try again."
       );
+    } finally {
+      setLoadingTTS(false);
     }
   };
 
-  const handleSend = async (textOverride = null) => {
+  const sendMessage = async (textOverride = null) => {
     const inputText =
       textOverride || (typeof message === "string" ? message.trim() : "");
     if (!inputText || !selectedMall) return;
@@ -1135,7 +1272,7 @@ export default function HomeScreen() {
     setIsTyping(true);
 
     try {
-      const backendUrl = "http://40.172.7.59:8000/chat";
+      const backendUrl = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT);
       const requestBody = {
         text: userMessage.text,
         conversation_id: conversationId,
@@ -1144,18 +1281,13 @@ export default function HomeScreen() {
         include_tts: autoPlayTTS,
       };
 
-      const response = await fetch(backendUrl, {
+      console.log(`Sending message to backend: ${JSON.stringify(requestBody)}`);
+      
+      const data = await API_CONFIG.fetchWithLogging(backendUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Network response was not ok");
-      }
-
-      const data = await response.json();
 
       // Detailed console debugging to see exactly what's in the response
       console.log("Full API response:", JSON.stringify(data));
@@ -1189,32 +1321,75 @@ export default function HomeScreen() {
         try {
           // Stop any current playback first
           await stopTTS();
-
-          const sound = new Audio.Sound();
-          activeSoundRef.current = sound;
+          
+          // Set loading state
+          setLoadingTTS(true);
           setPlayingMessageId(botResponse.id);
+          
+          console.log('Auto-play TTS: Processing audio from response');
 
-          await sound.loadAsync({
-            uri: `data:audio/mpeg;base64,${data.audio_base64}`,
-          });
-          await sound.playAsync();
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (status.isLoaded) {
-              const loadedStatus = status;
-              if (loadedStatus.didJustFinish) {
+          // Validate the base64 string
+          if (!data.audio_base64 || !/^[A-Za-z0-9+/=]+$/.test(data.audio_base64)) {
+            console.error("Auto-play TTS: Invalid base64 data received");
+            throw new Error("Invalid audio data received from server");
+          }
+
+          // Create a new sound object
+          let autoPlaySound;
+          try {
+            autoPlaySound = new Audio.Sound();
+            activeSoundRef.current = autoPlaySound;
+          } catch (soundError) {
+            console.error("Auto-play TTS: Error creating sound object:", soundError);
+            throw new Error("Failed to initialize audio player");
+          }
+          
+          const audioUri = `data:audio/mpeg;base64,${data.audio_base64}`;
+          console.log('Auto-play TTS: Loading audio with length:', data.audio_base64.length);
+          
+          try {
+            await autoPlaySound.loadAsync({ uri: audioUri });
+            console.log('Auto-play TTS: Audio loaded successfully');
+            
+            const playbackStatus = await autoPlaySound.playAsync();
+            console.log('Auto-play TTS: Playback started:', playbackStatus);
+            
+            autoPlaySound.setOnPlaybackStatusUpdate((status) => {
+              if (status.isLoaded) {
+                const loadedStatus = status;
+                if (loadedStatus.didJustFinish) {
+                  console.log('Auto-play TTS: Playback finished');
+                  setPlayingMessageId(null);
+                  autoPlaySound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
+                  activeSoundRef.current = null;
+                }
+              } else {
+                console.log('Auto-play TTS: Playback unloaded');
                 setPlayingMessageId(null);
-                sound.unloadAsync().catch(() => {});
+                autoPlaySound.unloadAsync().catch((err) => console.error('Error unloading sound:', err));
                 activeSoundRef.current = null;
               }
-            } else {
-              setPlayingMessageId(null);
-              sound.unloadAsync().catch(() => {});
-              activeSoundRef.current = null;
+            });
+          } catch (playError) {
+            console.error("Auto-play TTS: Error during playback:", playError);
+            if (autoPlaySound) {
+              try {
+                await autoPlaySound.unloadAsync();
+              } catch (unloadError) {
+                console.error("Auto-play TTS: Error unloading sound after failure:", unloadError);
+              }
             }
-          });
+            activeSoundRef.current = null;
+            setPlayingMessageId(null);
+            throw playError;
+          }
         } catch (error) {
           console.error("Auto-play TTS Error:", error);
           setPlayingMessageId(null);
+          // Don't show alert for auto-play errors to avoid disrupting the flow
+          console.log("Auto-play TTS failed silently, user can still manually play audio if needed");
+        } finally {
+          setLoadingTTS(false);
         }
       }
     } catch (error) {
@@ -1310,21 +1485,48 @@ export default function HomeScreen() {
 
   // Function to stop any currently playing TTS
   const stopTTS = async () => {
+    console.log('Stopping TTS playback');
     if (activeSoundRef.current) {
       try {
-        await activeSoundRef.current.stopAsync();
-        await activeSoundRef.current.unloadAsync();
+        console.log('Active sound found, stopping...');
+        // First stop the playback
+        await activeSoundRef.current.stopAsync().catch(err => 
+          console.log('Error stopping sound:', err)
+        );
+        
+        // Then unload the sound
+        await activeSoundRef.current.unloadAsync().catch(err => 
+          console.log('Error unloading sound:', err)
+        );
+        
+        console.log('Sound stopped and unloaded successfully');
+        activeSoundRef.current = null;
+        
+        // Always reset the playingMessageId when stopping
+        setPlayingMessageId(null);
+        // Reset loading state
+        setLoadingTTS(false);
+      } catch (error) {
+        console.error("Error stopping TTS playback:", error);
+        // Make sure we cleanup even if there's an error
         activeSoundRef.current = null;
         setPlayingMessageId(null);
-      } catch (error) {
-        console.error("Error stopping playback:", error);
+        setLoadingTTS(false);
       }
+    } else {
+      console.log('No active sound to stop');
+      // Always reset these states
+      setPlayingMessageId(null);
+      setLoadingTTS(false);
     }
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.headerBg} />
+      <StatusBar 
+        barStyle={theme.isDark ? "light-content" : "dark-content"} 
+        backgroundColor={theme.headerBg} 
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -1353,14 +1555,24 @@ export default function HomeScreen() {
             <View
               style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
             >
-              <Image
-                source={require("../assets/logo.png")}
+              {/* Logo with light/dark mode support */}
+              <View
                 style={{
-                  width: dimensions.width * 0.25,
-                  height: 30,
-                  resizeMode: "contain",
+                  backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  padding: theme.isDark ? 8 : 0,
+                  borderRadius: theme.isDark ? 8 : 0,
                 }}
-              />
+              >
+                <Logo 
+                  style={{
+                    opacity: theme.isDark ? 0.95 : 1,
+                  }}
+                  size={{
+                    width: dimensions.width * 0.25,
+                    height: 30,
+                  }}
+                />
+              </View>
               {/* Test button - only show in development */}
               {__DEV__ && (
                 <TouchableOpacity
@@ -1376,26 +1588,46 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity
-              onPress={toggleLanguage}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                backgroundColor: theme.secondary,
-                borderRadius: 16,
-                marginLeft: 10,
-              }}
-            >
-              <Text
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {/* Theme toggle button */}
+              <TouchableOpacity
+                onPress={toggleTheme}
                 style={{
-                  color: theme.text,
-                  fontFamily: "Poppins-Medium",
-                  fontSize: isSmallScreen ? 12 : 14,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: theme.secondary,
+                  borderRadius: 16,
+                  marginRight: 10,
                 }}
               >
-                {language === "en" ? "عربي" : "EN"}
-              </Text>
-            </TouchableOpacity>
+                <Ionicons
+                  name={theme.isDark ? "sunny-outline" : "moon-outline"}
+                  size={isSmallScreen ? 14 : 16}
+                  color={theme.text}
+                />
+              </TouchableOpacity>
+              
+              {/* Language toggle button */}
+              <TouchableOpacity
+                onPress={toggleLanguage}
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: theme.secondary,
+                  borderRadius: 16,
+                }}
+              >
+                <Text
+                  style={{
+                    color: theme.text,
+                    fontFamily: "Poppins-Medium",
+                    fontSize: isSmallScreen ? 12 : 14,
+                  }}
+                >
+                  {language === "en" ? "عربي" : "EN"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Mall Selection */}
@@ -1561,7 +1793,7 @@ export default function HomeScreen() {
                         }}
                       >
                         <TouchableOpacity
-                          onPress={() => handleSend(prompt)}
+                          onPress={() => sendMessage(prompt)}
                           style={{
                             backgroundColor: theme.secondary,
                             borderRadius: 20,
@@ -1588,41 +1820,42 @@ export default function HomeScreen() {
                 </MotiView>
               )}
 
-              {messages.map((msg, idx) => {
-                // Add debugging for each message as it's rendered
-                if (!msg.isUser && msg.images && Array.isArray(msg.images)) {
-                  console.log(
-                    `Rendering message ${msg.id} with ${msg.images.length} images`
-                  );
-                }
-
-                return (
-                  <AnimatedMessage
-                    key={`message-${msg.id}`}
-                    msg={msg}
-                    index={idx}
-                    language={language}
-                    playingId={playingMessageId}
-                    onPlay={(text, id) => playTTS(text, id)}
-                    onStop={stopTTS}
-                  />
-                );
-              })}
+              {messages.map((msg, index) => (
+                <AnimatedMessage
+                  key={msg.id}
+                  msg={msg}
+                  index={index}
+                  language={language}
+                  playingId={playingMessageId}
+                  loadingTTS={loadingTTS}
+                  onPlay={playTTS}
+                  onStop={stopTTS}
+                />
+              ))}
 
               {isTyping && (
-                <View
+                <MotiView
+                  from={{ opacity: 0, translateY: 10 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  transition={{ type: 'spring', stiffness: 150, damping: 15 }}
                   style={{
                     marginBottom: 15,
                     alignItems: "flex-start",
-                    maxWidth: dimensions.width * 0.25,
+                    alignSelf: "flex-start",
                     backgroundColor: theme.messageBg,
                     borderRadius: 20,
-                    borderTopLeftRadius: 4,
-                    padding: 4,
+                    borderTopLeftRadius: 6,
+                    paddingVertical: 8,
+                    paddingHorizontal: 4,
+                    shadowColor: theme.isDark ? "#000" : "#000",
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: theme.isDark ? 0.2 : 0.08,
+                    shadowRadius: 2,
+                    elevation: 2,
                   }}
                 >
                   <TypingIndicator />
-                </View>
+                </MotiView>
               )}
             </ScrollView>
           </View>
@@ -1693,7 +1926,7 @@ export default function HomeScreen() {
                   onChangeText={(text) => setMessage(text || "")}
                   onSubmitEditing={() => {
                     Keyboard.dismiss();
-                    handleSend();
+                    sendMessage();
                   }}
                   returnKeyType="send"
                   multiline
@@ -1729,7 +1962,7 @@ export default function HomeScreen() {
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
-                  onPress={() => handleSend()}
+                  onPress={() => sendMessage()}
                   disabled={!message?.trim() || !selectedMall || isTyping}
                   style={{
                     backgroundColor:
