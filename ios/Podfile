@@ -1,0 +1,50 @@
+require_relative '../node_modules/react-native/scripts/react_native_pods'
+require_relative '../node_modules/react-native-unimodules/cocoapods'
+require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
+
+platform :ios, '13.0'
+
+target 'cenomiclient' do
+  use_expo_modules!
+  config = use_native_modules!
+
+  use_react_native!(
+    :path => config[:reactNativePath],
+    # to enable hermes on iOS, change `false` to `true` and then install pods
+    :hermes_enabled => true
+  )
+
+  # Additional pods for Expo modules
+  pod 'expo-dev-client', :path => '../node_modules/expo-dev-client'
+  pod 'expo-av', :path => '../node_modules/expo-av'
+  pod 'expo-speech', :path => '../node_modules/expo-speech'
+  pod 'expo-splash-screen', :path => '../node_modules/expo-splash-screen'
+  pod 'expo-font', :path => '../node_modules/expo-font'
+  pod 'expo-status-bar', :path => '../node_modules/expo-status-bar'
+  pod 'expo-linking', :path => '../node_modules/expo-linking'
+  pod 'expo-constants', :path => '../node_modules/expo-constants'
+  pod 'EXLinearGradient', :path => '../node_modules/expo-linear-gradient'
+  pod 'EXBlur', :path => '../node_modules/expo-blur'
+  pod 'RNGestureHandler', :path => '../node_modules/react-native-gesture-handler'
+  pod 'RNReanimated', :path => '../node_modules/react-native-reanimated'
+  pod 'RNSVG', :path => '../node_modules/react-native-svg'
+  pod 'RNCAsyncStorage', :path => '../node_modules/@react-native-async-storage/async-storage'
+  pod 'RNVoice', :path => '../node_modules/@react-native-voice/voice'
+
+  post_install do |installer|
+    react_native_post_install(installer)
+    __apply_Xcode_12_5_M1_post_install_workaround(installer)
+
+    # Fix for Xcode 14 and iOS 16
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ""
+        config.build_settings['CODE_SIGNING_REQUIRED'] = "NO"
+        config.build_settings['CODE_SIGNING_ALLOWED'] = "NO"
+        
+        # Additional compatibility fix
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      end
+    end
+  end
+end 

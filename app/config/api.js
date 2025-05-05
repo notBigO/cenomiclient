@@ -1,8 +1,8 @@
 // API Configuration
 const API_CONFIG = {
   // Use your production backend URL here
-  PROD_BASE_URL: "http://40.172.7.59:8000",
-  // PROD_BASE_URL: "http://192.168.0.29:8000
+  PROD_BASE_URL: "http://192.168.70.230:8000",  
+  // PROD_BASE_URL: "http://3.29.133.32:8000",
 
   // For local development
   DEV_BASE_URL: "http://192.168.0.23:8000",

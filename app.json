@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cenomiclient",
+      "bundleIdentifier": "com.cenomi.ai",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app uses the microphone to support voice input for chatting with Cenomi AI.",
         "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to convert your voice input into text for the chat."
@@ -63,8 +63,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "e1782484-8196-4590-b941-bf1c2024fcbe"
+        "projectId": "c6067e4f-17d8-4083-821b-6681d6e45392"
       }
-    }
+    },
+    "owner": "nanda017"
   }
 }
