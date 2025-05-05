@@ -101,16 +101,6 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        // Comment out the release config for now since we don't have the keystore file
-        /*
-        release {
-            storeFile file('release.keystore')
-            storePassword 'cenomi123'
-            keyAlias 'cenomi-alias'
-            keyPassword 'cenomi123'
-            // You'll need to create this keystore file using Android Studio or keytool
-        }
-        */
     }
     buildTypes {
         debug {
@@ -119,7 +109,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug // temporarily use debug keystore
+            signingConfig signingConfigs.debug
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
@@ -130,28 +120,9 @@ android {
         jniLibs {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
         }
-        resources {
-            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE', 'META-INF/LICENSE.txt', 'META-INF/license.txt', 'META-INF/NOTICE', 'META-INF/NOTICE.txt', 'META-INF/notice.txt', 'META-INF/ASL2.0', 'META-INF/*.version', 'META-INF/versions/**']
-            pickFirsts += ['META-INF/androidx.appcompat_appcompat.version']
-        }
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-}
-
-// Add this configuration to exclude duplicate classes
-configurations {
-    all {
-        exclude group: 'com.android.support', module: 'support-compat'
-        exclude group: 'com.android.support', module: 'support-core-utils'
-        exclude group: 'com.android.support', module: 'support-core-ui'
-        exclude group: 'com.android.support', module: 'support-fragment'
-        exclude group: 'com.android.support', module: 'support-annotations'
-        exclude group: 'com.android.support', module: 'support-v4'
-        exclude group: 'com.android.support', module: 'versionedparcelable'
-        exclude group: 'com.android.support', module: 'appcompat-v7'
-        exclude group: 'androidx.versionedparcelable', module: 'versionedparcelable'
     }
 }
 
@@ -177,17 +148,11 @@ configurations {
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
-    implementation("com.facebook.react:react-android") {
-        exclude group: 'com.android.support'
-    }
+    implementation("com.facebook.react:react-android")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
-
-    // Vosk offline speech recognition dependencies
-    implementation 'net.java.dev.jna:jna:5.9.0@aar'
-    implementation 'com.alphacephei:vosk-android:0.3.47'
 
     if (isGifEnabled) {
         // For animated gif support
@@ -204,12 +169,8 @@ dependencies {
     }
 
     if (hermesEnabled.toBoolean()) {
-        implementation("com.facebook.react:hermes-android") {
-            exclude group: 'com.android.support'
-        }
+        implementation("com.facebook.react:hermes-android")
     } else {
-        implementation(jscFlavor) {
-            exclude group: 'com.android.support'
-        }
+        implementation jscFlavor
     }
 }
