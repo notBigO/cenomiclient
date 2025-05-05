@@ -54,7 +54,7 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>This app uses the microphone to support voice input for chatting with Cenomi AI.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>This app uses the mediapicker to pick documents with Cenomi AI.</string>
+    <string>This app uses the media picker to pick documents with Cenomi AI.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>This app uses speech recognition to convert your voice input into text for the chat.</string>
     <key>NSUserActivityTypes</key>
