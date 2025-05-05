@@ -1,7 +1,7 @@
 // API Configuration
 const API_CONFIG = {
   // Use your production backend URL here
-  PROD_BASE_URL: "http://192.168.70.230:8000",  
+  PROD_BASE_URL: "http://192.168.70.230:8000",
   // PROD_BASE_URL: "http://3.29.133.32:8000",
 
   // For local development
@@ -11,7 +11,7 @@ const API_CONFIG = {
   get BASE_URL() {
     // You can implement different logic to determine which URL to use
     // For now, we'll use the production URL for the APK
-    return this.PROD_BASE_URL;
+    return __DEV__ ? "http://192.168.0.23:8000" : "http://3.29.133.32:8000";
   },
 
   // Define API endpoints
