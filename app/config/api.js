@@ -1,7 +1,7 @@
 // API Configuration
 const API_CONFIG = {
   // Use your production backend URL here
-  PROD_BASE_URL: "http://192.168.70.230:8000",  
+  PROD_BASE_URL: "http://3.28.252.58:8000",  
   // PROD_BASE_URL: "http://3.29.133.32:8000",
 
   // For local development
@@ -17,6 +17,7 @@ const API_CONFIG = {
   // Define API endpoints
   ENDPOINTS: {
     CHAT: "/chat",
+    CHAT_STREAM: "/chat-stream",
     TTS: "/tts",
     MALLS: "/malls",
     LOGIN: "/login",
@@ -45,6 +46,71 @@ const API_CONFIG = {
       return data;
     } catch (error) {
       console.error(`API Request Failed: ${url}`, error);
+      throw error;
+    }
+  },
+
+  // Helper to handle streaming API requests
+  async fetchStream(url, options = {}, onChunk, onComplete, onError) {
+    console.log(`Making streaming API request to: ${url}`);
+    try {
+      const response = await fetch(url, options);
+      
+      if (!response.ok) {
+        console.error(`API Error: ${response.status} ${response.statusText}`);
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+      
+      if (!response.body) {
+        throw new Error("ReadableStream not supported in this browser");
+      }
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let partialLine = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          if (partialLine) {
+            // Process any remaining data
+            try {
+              onChunk(partialLine);
+            } catch (e) {
+              console.error("Error processing final chunk:", e);
+            }
+          }
+          onComplete();
+          break;
+        }
+        
+        // Decode the stream chunk and split by lines
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = (partialLine + chunk).split('\n');
+        partialLine = lines.pop() || ''; // Last line might be incomplete
+        
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              // Most likely JSON, but handle plain text too
+              let parsedData;
+              try {
+                parsedData = JSON.parse(line);
+              } catch (e) {
+                parsedData = { message: line };
+              }
+              onChunk(parsedData);
+            } catch (e) {
+              console.error("Error processing chunk:", e, line);
+            }
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error(`Streaming API Request Failed: ${url}`, error);
+      onError && onError(error);
       throw error;
     }
   },

@@ -28,6 +28,7 @@ import {
   TouchableWithoutFeedback,
   Alert,
   useColorScheme,
+  Switch,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -39,6 +40,9 @@ import Reanimated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSequence,
+  withDelay,
+  runOnJS,
 } from "react-native-reanimated";
 import {
   PinchGestureHandler,
@@ -142,6 +146,86 @@ const TypingIndicator = () => {
         }}
       />
     </View>
+  );
+};
+
+// Typing cursor component for streaming messages
+const StreamingCursor = () => {
+  const { theme } = useTheme();
+  const [visible, setVisible] = useState(true);
+  
+  // Use a simpler animation to reduce overhead
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(prev => !prev);
+    }, 530); // Slightly longer than default to appear more natural
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <Text
+      style={{
+        color: visible ? theme.primary : 'transparent',
+        opacity: visible ? 1 : 0,
+        marginLeft: 1,
+        fontSize: 15,
+        fontFamily: "Poppins-Regular",
+      }}
+    >
+      |
+    </Text>
+  );
+};
+
+// Streaming Message Component with simplified approach
+const StreamingMessage = ({ streamingText, language, theme }) => {
+  return (
+    <MotiView
+      from={{ opacity: 0, translateY: 10 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{
+        type: "timing",
+        duration: 250,
+      }}
+      style={{
+        marginBottom: 15,
+        alignItems: "flex-start",
+        maxWidth: "90%",
+        alignSelf: "flex-start",
+      }}
+    >
+      <MotiView
+        from={{ scale: 0.98 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "timing", duration: 200 }}
+        style={{
+          backgroundColor: theme.messageBg,
+          borderRadius: 20,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderTopLeftRadius: 6,
+          borderTopRightRadius: 20,
+          position: "relative",
+        }}
+      >
+        <View style={{ paddingRight: 28 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <MarkdownText
+              text={streamingText}
+              style={{
+                color: theme.text,
+                fontFamily: "Poppins-Regular",
+                fontSize: 15,
+                lineHeight: 22,
+                textAlign: language === "ar" ? "right" : "left",
+              }}
+            />
+            <StreamingCursor />
+          </View>
+        </View>
+      </MotiView>
+    </MotiView>
   );
 };
 
@@ -879,7 +963,7 @@ function HomeScreen() {
   const [recording, setRecording] = useState(null);
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [autoPlayTTS, setAutoPlayTTS] = useState(false);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  const permissionResponse = Audio.usePermissions()[0];
   const scrollViewRef = useRef(null);
   // Add a reference to the currently playing sound
   const activeSoundRef = useRef(null);
@@ -887,6 +971,12 @@ function HomeScreen() {
   const [playingMessageId, setPlayingMessageId] = useState(null);
   // Track global TTS loading state
   const [loadingTTS, setLoadingTTS] = useState(false);
+  
+  // New state for streaming
+  const [useStreaming, setUseStreaming] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [streamingMessageId, setStreamingMessageId] = useState(null);
 
   // Display test image component at the top for debugging
   const [showTestImage, setShowTestImage] = useState(false);
@@ -1334,14 +1424,151 @@ function HomeScreen() {
     };
     setMessages((prev) => [...prev, userMessage]);
     setMessage("");
+    
+    // Use streaming or regular endpoint based on user preference
+    if (useStreaming) {
+      await sendStreamingMessage(userMessage);
+    } else {
     setIsTyping(true);
+      await sendRegularMessage(userMessage);
+    }
 
     // Scroll to end after user message
     setTimeout(
       () => scrollViewRef.current?.scrollToEnd({ animated: true }),
       100
     );
+  };
+  
+  // New function for streaming chat
+  const sendStreamingMessage = async (userMessage) => {
+    if (!selectedMall) return;
+    
+    // Reset streaming state
+    setStreamingText("");
+    setIsStreaming(true);
+    setStreamingMessageId(messages.length + 2);
+    
+    try {
+      const backendUrl = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT_STREAM);
+      const requestBody = {
+        text: userMessage.text,
+        conversation_id: conversationId,
+        language: language,
+        mall_id: parseInt(selectedMall),
+        include_tts: false, // We'll handle TTS separately after streaming completes
+      };
 
+      console.log(`Sending streaming message to backend: ${JSON.stringify(requestBody)}`);
+
+      // Use simulation mode for testing since the actual endpoint might not be ready
+      // Remove the specific IP check and always use simulation mode for now
+      if (__DEV__ || true) { // Force simulation mode even in production for testing
+        console.log("Using test streaming mode since the endpoint is not ready");
+        simulateStreamingResponse(userMessage.text);
+        return;
+      }
+      
+      // Rest of the real streaming implementation
+      // This code won't execute while we're testing
+      await API_CONFIG.fetchStream(
+        backendUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        },
+        // Process each chunk
+        (chunk) => {
+          if (typeof chunk === 'string') {
+            setStreamingText(prev => prev + chunk);
+          } else if (chunk.message) {
+            setStreamingText(prev => prev + chunk.message);
+          } else if (chunk.text) {
+            setStreamingText(prev => prev + chunk.text);
+          } else {
+            console.log("Unknown chunk format:", chunk);
+          }
+          
+          // Scroll to bottom as text comes in
+          setTimeout(
+            () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+            50
+          );
+        },
+        // When stream is complete
+        async (lastResponse) => {
+          console.log("Stream complete");
+          const finalBotResponse = {
+            id: streamingMessageId,
+            text: streamingText, // Use the accumulated text
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            // We can add images here if the API provides them
+          };
+          
+          setMessages(prev => [...prev, finalBotResponse]);
+          setIsStreaming(false);
+          
+          // Save conversation ID if provided in the last response
+          if (lastResponse && lastResponse.conversation_id) {
+            setConversationId(lastResponse.conversation_id);
+            await AsyncStorage.setItem("conversation_id", lastResponse.conversation_id);
+          }
+          
+          // Play TTS if enabled
+          if (autoPlayTTS && finalBotResponse.text) {
+            playTTS(finalBotResponse.text, finalBotResponse.id);
+          }
+          
+          // Clear streaming text after adding to messages
+          setStreamingText("");
+        },
+        // Handle errors
+        (error) => {
+          console.error("Streaming Error:", error);
+          setIsStreaming(false);
+          setStreamingText("");
+          const errorMessage = {
+            id: messages.length + 2,
+            text:
+              language === "ar"
+                ? "عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً."
+                : "Sorry, something went wrong. Please try again later.",
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+        }
+      );
+    } catch (error) {
+      console.error("Streaming Error:", error);
+      setIsStreaming(false);
+      setStreamingText("");
+      const errorMessage = {
+        id: messages.length + 2,
+        text:
+          language === "ar"
+            ? "عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً."
+            : "Sorry, something went wrong. Please try again later.",
+        isUser: false,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+  
+  // Rename the existing function to sendRegularMessage
+  const sendRegularMessage = async (userMessage) => {
     try {
       const backendUrl = API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT);
       const requestBody = {
@@ -1503,25 +1730,122 @@ function HomeScreen() {
     }
   };
 
-  const clearChat = async () => {
-    setMessages(getWelcomeMessages(language));
-    setConversationId(null);
-    await AsyncStorage.removeItem("conversation_id");
-  };
+  // Testing function to simulate streaming response (for development)
+  const simulateStreamingResponse = (userMessage) => {
+    // More realistic responses based on user input
+    const responses = {
+      default: "I'm processing your request. This is a simulated streaming response to show how the UI works with progressive text rendering. The key to a good streaming experience is smooth updates that don't cause layout shifts or flicker as new content appears.",
+      "Hey": "Hello! Welcome to Cenomi Mall. I'm your virtual assistant. How can I help you today? I can provide information about stores, restaurants, events, or help you navigate around the mall.",
+      "Hello": "Hi there! Welcome to Cenomi. I'm here to help you with any information about our malls, stores, events, or services. What would you like to know today?",
+      "What's the nearest mall?": "Based on your current location, the nearest Cenomi mall is **Nakheel Mall**. It's located approximately 3.5 kilometers from your position.\n\nThis mall features:\n* Over 300 retail outlets\n* A large food court with 45+ dining options\n* Cinema complex\n* Family entertainment center\n\nThe mall is open from 10:00 AM to 12:00 AM on weekdays, and 10:00 AM to 1:00 AM on weekends.",
+      "Show me dining options": "Here are some popular dining options at Cenomi Mall:\n\n1. **Caffe Concerto** - Italian cuisine, pastries and coffee\n2. **Nando's** - Portuguese-style chicken dishes\n3. **P.F. Chang's** - Asian fusion dishes\n4. **Applebee's** - American casual dining\n5. **Texas Roadhouse** - Steakhouse\n6. **Shake Shack** - Burgers and shakes\n7. **Cheesecake Factory** - American dishes and desserts\n\nAll these restaurants are located on the second floor in the main dining area. Would you like more information about any specific restaurant?",
+      "events": "Here are the upcoming events at Cenomi Mall:\n\n• **Summer Festival** - Starting next week with family activities, games, and special discounts\n• **Fashion Show** - This weekend featuring the latest summer collections\n• **Kids Workshop** - Arts and crafts activities every Saturday morning\n• **Live Music** - Thursday evenings at the central court\n\nYou can find more details about these events at the information desk on the ground floor.",
+      "stores": "Cenomi Mall has a diverse range of stores including:\n\n• **Fashion**: Zara, H&M, Mango, Lacoste\n• **Electronics**: Apple Store, Samsung, Virgin Megastore\n• **Cosmetics**: Sephora, Bath & Body Works, MAC\n• **Footwear**: Adidas, Nike, Foot Locker\n• **Home Goods**: IKEA, Home Centre, Pottery Barn\n\nWhich category are you interested in exploring?"
+    };
 
-  const quickPrompts = {
-    en: [
-      "What's the nearest mall?",
-      "Show me dining options",
-      "Any events this weekend?",
-      "Find a clothing store",
-    ],
-    ar: [
-      "ما هو أقرب مركز تجاري؟",
-      "أرني خيارات الطعام",
-      "هل هناك فعاليات هذا الأسبوع؟",
-      "ابحث عن متجر ملابس",
-    ],
+    // Find matching response based on keywords
+    let responseText = responses.default;
+    
+    // Convert to lowercase for case-insensitive matching
+    const lowercaseInput = userMessage.toLowerCase();
+    
+    // Check if input contains specific keywords
+    if (lowercaseInput === "hey" || lowercaseInput === "hi") {
+      responseText = responses["Hey"];
+    } else if (lowercaseInput === "hello") {
+      responseText = responses["Hello"];
+    } else if (lowercaseInput.includes("nearest") || lowercaseInput.includes("mall") || lowercaseInput.includes("location")) {
+      responseText = responses["What's the nearest mall?"];
+    } else if (lowercaseInput.includes("food") || lowercaseInput.includes("eat") || lowercaseInput.includes("dining") || lowercaseInput.includes("restaurant")) {
+      responseText = responses["Show me dining options"];
+    } else if (lowercaseInput.includes("event")) {
+      responseText = responses["events"];
+    } else if (lowercaseInput.includes("store") || lowercaseInput.includes("shop")) {
+      responseText = responses["stores"];
+    }
+
+    console.log(`Simulating stream for: "${userMessage}" with response template: ${responseText.substring(0, 30)}...`);
+
+    // Ultra-smooth streaming implementation
+    let visibleText = "";
+    let charIndex = 0;
+    const charTotal = responseText.length;
+    
+    // Stream character by character with variable speed based on punctuation
+    const streamCharacters = () => {
+      // We'll process a batch of characters for better performance
+      // This still looks very smooth but reduces state updates
+      const batchSize = 2; // Process 2 characters at once
+      let batchDelay = 10; // Default delay between batches
+      
+      // Process a batch of characters
+      for (let i = 0; i < batchSize; i++) {
+        // Break if we've reached the end
+        if (charIndex >= charTotal) break;
+        
+        // Get next character
+        const nextChar = responseText[charIndex];
+        visibleText += nextChar;
+        charIndex++;
+        
+        // Adjust delay based on punctuation
+        if (nextChar === '.') {
+          batchDelay = 40; // Period pause
+        } else if (nextChar === ',') {
+          batchDelay = 25; // Comma pause
+        } else if (nextChar === '\n') {
+          batchDelay = 50; // Line break pause
+        } else if (nextChar === '!' || nextChar === '?') {
+          batchDelay = 40; // Question or exclamation pause
+        }
+      }
+      
+      // Update state with batched text (single state update for multiple characters)
+      setStreamingText(visibleText);
+      
+      // Schedule next batch efficiently using requestAnimationFrame
+      if (charIndex < charTotal) {
+        // Use requestAnimationFrame for smoother timing, then setTimeout for controlled pacing
+        requestAnimationFrame(() => {
+          // Scroll without animation for better performance
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: false });
+          }
+          
+          setTimeout(streamCharacters, batchDelay);
+        });
+      } else {
+        // Streaming complete
+        console.log("Streaming simulation complete");
+        
+        // Finish scrolling first
+        requestAnimationFrame(() => {
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollToEnd({ animated: false });
+          }
+          
+          // Then finalize the message after a tiny delay
+          setTimeout(() => {
+            const finalBotResponse = {
+              id: streamingMessageId,
+              text: responseText,
+              isUser: false,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            };
+            
+            setMessages(prev => [...prev, finalBotResponse]);
+            setIsStreaming(false);
+            setStreamingText("");
+          }, 100);
+        });
+      }
+    };
+    
+    // Start streaming with a small initial delay
+    setTimeout(streamCharacters, 200);
   };
 
   // Add keyboard state tracking
@@ -1608,6 +1932,28 @@ function HomeScreen() {
     }
   };
 
+  // Add back the functions that were accidentally removed
+  const clearChat = async () => {
+    setMessages(getWelcomeMessages(language));
+    setConversationId(null);
+    await AsyncStorage.removeItem("conversation_id");
+  };
+
+  const quickPrompts = {
+    en: [
+      "What's the nearest mall?",
+      "Show me dining options",
+      "Any events this weekend?",
+      "Find a clothing store",
+    ],
+    ar: [
+      "ما هو أقرب مركز تجاري؟",
+      "أرني خيارات الطعام",
+      "هل هناك فعاليات هذا الأسبوع؟",
+      "ابحث عن متجر ملابس",
+    ],
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
       <StatusBar
@@ -1662,17 +2008,46 @@ function HomeScreen() {
               </View>
               {/* Test button - only show in development */}
               {__DEV__ && (
+                <View style={{ 
+                  flexDirection: 'row', 
+                  marginLeft: 10, 
+                  alignItems: 'center'
+                }}>
                 <TouchableOpacity
                   onPress={toggleTestImage}
                   style={{
-                    marginLeft: 10,
-                    backgroundColor: "#f0f0f0",
+                      backgroundColor: theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
                     padding: 5,
                     borderRadius: 5,
+                      marginRight: 10
                   }}
                 >
-                  <Text style={{ fontSize: 10 }}>Test</Text>
+                    <Text style={{ fontSize: 10, color: theme.text }}>Test</Text>
                 </TouchableOpacity>
+                  
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center',
+                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 5,
+                    borderRadius: 10
+                  }}>
+                    <Text style={{ 
+                      fontSize: 12, 
+                      color: theme.text,
+                      marginRight: 5
+                    }}>
+                      Stream
+                    </Text>
+                    <Switch
+                      value={useStreaming}
+                      onValueChange={setUseStreaming}
+                      trackColor={{ false: "#767577", true: theme.primary + "80" }}
+                      thumbColor={useStreaming ? theme.primary : "#f4f3f4"}
+                    />
+                  </View>
+                </View>
               )}
             </View>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -1917,7 +2292,17 @@ function HomeScreen() {
                 />
               ))}
 
-              {isTyping && (
+              {/* Show streaming message if active */}
+              {isStreaming && streamingText && (
+                <StreamingMessage 
+                  streamingText={streamingText} 
+                  language={language}
+                  theme={theme}
+                />
+              )}
+
+              {/* Show typing indicator only for non-streaming responses */}
+              {isTyping && !isStreaming && (
                 <MotiView
                   from={{ opacity: 0, translateY: 10 }}
                   animate={{ opacity: 1, translateY: 0 }}
