@@ -149,7 +149,7 @@ const TypingIndicator = () => {
 // Animated Message Component Props Interface
 interface AnimatedMessageProps {
   msg: {
-    id: number;
+    id: string;
     text: string;
     isUser: boolean;
     timestamp?: string;
@@ -160,9 +160,9 @@ interface AnimatedMessageProps {
   };
   index: number;
   language: string;
-  playingId: number | null;
+  playingId: string | null;
   loadingTTS: boolean;
-  onPlay: (text: string, id: number) => void;
+  onPlay: (text: string, id: string) => void;
   onStop: () => void;
 }
 
@@ -858,7 +858,51 @@ const ImageViewerModal: React.FC<ImageViewerModalProps> = ({
   );
 };
 
+// Instead of hardcoding the token, let's load it from AsyncStorage
+const AUTH_TOKEN_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkdW1teSIsImV4cCI6MTc3ODMxMDA3Niwic2NvcGUiOiJpbnRlcm5hbCJ9._bgNhCJ-qHv1fbeTiGVm7NQRvmF3WMSQWWL_Ou7AizE";
+// Replace this with your actual auth token - this is a fallback/default
+const AUTH_TOKEN =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkdW1teSIsImV4cCI6MTc3ODMxMDA3Niwic2NvcGUiOiJpbnRlcm5hbCJ9._bgNhCJ-qHv1fbeTiGVm7NQRvmF3WMSQWWL_Ou7AizE";
+
 export default function App() {
+  const [tokenLoaded, setTokenLoaded] = useState(false);
+
+  // Load the authentication token when the app starts
+  useEffect(() => {
+    const loadAuthToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+        if (token) {
+          console.log("Auth token loaded from storage");
+          API_CONFIG.setAuthToken(token);
+        } else {
+          console.log("No auth token found in storage, using default");
+          // Set a default token for testing - in production this would come from login
+          API_CONFIG.setAuthToken(AUTH_TOKEN);
+          // Save it for future use
+          await AsyncStorage.setItem(AUTH_TOKEN_KEY, AUTH_TOKEN);
+        }
+      } catch (error) {
+        console.error("Error loading auth token:", error);
+        // Fall back to the default token
+        API_CONFIG.setAuthToken(AUTH_TOKEN);
+      } finally {
+        setTokenLoaded(true);
+      }
+    };
+
+    loadAuthToken();
+  }, []);
+
+  if (!tokenLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
   return (
     <ThemeProvider>
       <HomeScreen />
@@ -884,7 +928,7 @@ function HomeScreen() {
   // Add a reference to the currently playing sound
   const activeSoundRef = useRef(null);
   // Track which message is currently playing
-  const [playingMessageId, setPlayingMessageId] = useState(null);
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   // Track global TTS loading state
   const [loadingTTS, setLoadingTTS] = useState(false);
 
@@ -898,15 +942,32 @@ function HomeScreen() {
 
   // Use a function to set welcome messages based on language
   const getWelcomeMessages = (lang) => {
+    const baseId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
     if (lang === "ar") {
       return [
-        { id: 1, text: "مرحباً، أنا سينومي AI! 👋", isUser: false },
-        { id: 2, text: "كيف يمكنني مساعدتك اليوم؟", isUser: false },
+        {
+          id: baseId + "-welcome-1",
+          text: "مرحباً، أنا سينومي AI! 👋",
+          isUser: false,
+        },
+        {
+          id: baseId + "-welcome-2",
+          text: "كيف يمكنني مساعدتك اليوم؟",
+          isUser: false,
+        },
       ];
     } else {
       return [
-        { id: 1, text: "Hello, I'm Cenomi AI! 👋", isUser: false },
-        { id: 2, text: "How can I help you today?", isUser: false },
+        {
+          id: baseId + "-welcome-1",
+          text: "Hello, I'm Cenomi AI! 👋",
+          isUser: false,
+        },
+        {
+          id: baseId + "-welcome-2",
+          text: "How can I help you today?",
+          isUser: false,
+        },
       ];
     }
   };
@@ -960,9 +1021,16 @@ function HomeScreen() {
 
   // Initialize user data and malls on component mount
   useEffect(() => {
-    loadUserData();
-    fetchMalls();
-  }, []);
+    const initializeApp = async () => {
+      await loadUserData();
+      await fetchMalls();
+    };
+
+    // Only initialize if we have an auth token
+    if (API_CONFIG.getAuthToken()) {
+      initializeApp();
+    }
+  }, [API_CONFIG.getAuthToken()]); // Re-run if auth token changes
 
   // Setup Voice recognition listeners
   useEffect(() => {
@@ -1195,14 +1263,21 @@ function HomeScreen() {
 
       let data;
       try {
-        data = await API_CONFIG.fetchWithLogging(
-          API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS),
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text, language }),
+        // Use API_CONFIG.getHeaders to ensure auth token is included
+        const headers = API_CONFIG.getHeaders({
+          "Content-Type": "application/json",
+        });
+
+        data = await fetch(API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.TTS), {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ text, language }),
+        }).then((response) => {
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
           }
-        );
+          return response.json();
+        });
       } catch (apiError) {
         console.error("TTS API Error:", apiError);
         throw new Error(
@@ -1323,8 +1398,11 @@ function HomeScreen() {
       textOverride || (typeof message === "string" ? message.trim() : "");
     if (!inputText || !selectedMall) return;
 
+    // Create a unique ID using timestamp + random value to ensure uniqueness
+    const uniqueId = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+
     const userMessage = {
-      id: messages.length + 1,
+      id: uniqueId + "-user",
       text: inputText,
       isUser: true,
       timestamp: new Date().toLocaleTimeString([], {
@@ -1354,150 +1432,227 @@ function HomeScreen() {
 
       console.log(`Sending message to backend: ${JSON.stringify(requestBody)}`);
 
-      const data = await API_CONFIG.fetchWithLogging(backendUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      // Detailed console debugging to see exactly what's in the response
-      console.log("Full API response:", JSON.stringify(data));
-      console.log(
-        "Images structure:",
-        data.images ? JSON.stringify(data.images) : "No images"
-      );
-
-      const botResponse = {
-        id: messages.length + 2,
-        text: data.message || "No response received.",
+      // Create placeholder for bot response during streaming
+      const botResponseId = uniqueId + "-bot";
+      const botResponsePlaceholder = {
+        id: botResponseId,
+        text: "",
         isUser: false,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
-        images: data.images || [],
+        images: [],
       };
 
-      // Log what's being stored in the message object
-      console.log(
-        "Bot message with images:",
-        JSON.stringify(botResponse.images)
-      );
+      setMessages((prev) => [...prev, botResponsePlaceholder]);
 
-      setMessages((prev) => [...prev, botResponse]);
-      setConversationId(data.conversation_id);
-      await AsyncStorage.setItem("conversation_id", data.conversation_id);
+      // Variable to store the accumulated response from streaming
+      let accumulatedResponse = "";
+      let newConversationId = conversationId;
 
-      if (autoPlayTTS && data.audio_base64) {
-        try {
-          // Stop any current playback first
-          await stopTTS();
+      // Process streaming response using our new direct streaming approach
+      try {
+        console.log(
+          "Using direct XMLHttpRequest streaming for real-time updates"
+        );
+        await API_CONFIG.fetchDirectStream(
+          API_CONFIG.getUrl(API_CONFIG.ENDPOINTS.CHAT), // Use actual streaming endpoint
+          requestBody,
+          (data) => {
+            console.log("Stream data received:", JSON.stringify(data));
 
-          // Set loading state
-          setLoadingTTS(true);
-          setPlayingMessageId(botResponse.id);
+            // Handle different message types
+            if (data.type === "start") {
+              newConversationId = data.conversation_id;
+              setConversationId(data.conversation_id);
+              AsyncStorage.setItem(
+                "conversation_id",
+                data.conversation_id
+              ).catch((err) =>
+                console.error("Error saving conversation ID:", err)
+              );
+              console.log(
+                "Streaming started, conversation ID:",
+                data.conversation_id
+              );
+            } else if (data.type === "chunk") {
+              // Process content token as it arrives in real-time
+              console.log(`Token received: "${data.content}"`);
 
-          console.log("Auto-play TTS: Processing audio from response");
+              // Add the new content to our accumulated response
+              accumulatedResponse += data.content;
 
-          // Validate the base64 string
-          if (
-            !data.audio_base64 ||
-            !/^[A-Za-z0-9+/=]+$/.test(data.audio_base64)
-          ) {
-            console.error("Auto-play TTS: Invalid base64 data received");
-            throw new Error("Invalid audio data received from server");
-          }
-
-          // Create a new sound object
-          let autoPlaySound;
-          try {
-            autoPlaySound = new Audio.Sound();
-            activeSoundRef.current = autoPlaySound;
-          } catch (soundError) {
-            console.error(
-              "Auto-play TTS: Error creating sound object:",
-              soundError
-            );
-            throw new Error("Failed to initialize audio player");
-          }
-
-          const audioUri = `data:audio/mpeg;base64,${data.audio_base64}`;
-          console.log(
-            "Auto-play TTS: Loading audio with length:",
-            data.audio_base64.length
-          );
-
-          try {
-            await autoPlaySound.loadAsync({ uri: audioUri });
-            console.log("Auto-play TTS: Audio loaded successfully");
-
-            const playbackStatus = await autoPlaySound.playAsync();
-            console.log("Auto-play TTS: Playback started:", playbackStatus);
-
-            autoPlaySound.setOnPlaybackStatusUpdate((status) => {
-              if (status.isLoaded) {
-                const loadedStatus = status;
-                if (loadedStatus.didJustFinish) {
-                  console.log("Auto-play TTS: Playback finished");
-                  setPlayingMessageId(null);
-                  autoPlaySound
-                    .unloadAsync()
-                    .catch((err) =>
-                      console.error("Error unloading sound:", err)
-                    );
-                  activeSoundRef.current = null;
-                }
-              } else {
-                console.log("Auto-play TTS: Playback unloaded");
-                setPlayingMessageId(null);
-                autoPlaySound
-                  .unloadAsync()
-                  .catch((err) => console.error("Error unloading sound:", err));
-                activeSoundRef.current = null;
-              }
-            });
-          } catch (playError) {
-            console.error("Auto-play TTS: Error during playback:", playError);
-            if (autoPlaySound) {
-              try {
-                await autoPlaySound.unloadAsync();
-              } catch (unloadError) {
-                console.error(
-                  "Auto-play TTS: Error unloading sound after failure:",
-                  unloadError
+              // Force immediate UI update with each token
+              setMessages((prev) => {
+                const updatedMessages = [...prev];
+                const botMessageIndex = updatedMessages.findIndex(
+                  (msg) => msg.id === botResponseId
                 );
-              }
+
+                if (botMessageIndex !== -1) {
+                  // Create a new object reference to ensure React detects the change
+                  updatedMessages[botMessageIndex] = {
+                    ...updatedMessages[botMessageIndex],
+                    text: accumulatedResponse,
+                  };
+                }
+
+                return updatedMessages;
+              });
+
+              // Scroll to the latest content immediately
+              requestAnimationFrame(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: false });
+              });
+            } else if (data.type === "end") {
+              console.log("Streaming completed");
+            } else if (data.type === "error") {
+              console.error("Streaming error from server:", data.message);
+              throw new Error(data.message);
+            } else if (data.type === "raw") {
+              // Handle non-JSON raw content
+              console.log("Raw content received:", data.content);
+              accumulatedResponse += data.content;
+
+              setMessages((prev) => {
+                const updatedMessages = [...prev];
+                const botMessageIndex = updatedMessages.findIndex(
+                  (msg) => msg.id === botResponseId
+                );
+
+                if (botMessageIndex !== -1) {
+                  updatedMessages[botMessageIndex] = {
+                    ...updatedMessages[botMessageIndex],
+                    text: accumulatedResponse,
+                  };
+                }
+
+                return updatedMessages;
+              });
             }
-            activeSoundRef.current = null;
-            setPlayingMessageId(null);
-            throw playError;
           }
-        } catch (error) {
-          console.error("Auto-play TTS Error:", error);
-          setPlayingMessageId(null);
-          // Don't show alert for auto-play errors to avoid disrupting the flow
-          console.log(
-            "Auto-play TTS failed silently, user can still manually play audio if needed"
+        );
+      } catch (streamError) {
+        console.error("Direct streaming error:", streamError);
+
+        // Try fallback to regular API if direct streaming fails
+        try {
+          console.log("Falling back to regular API due to streaming error");
+          const regularUrl = API_CONFIG.getUrl(
+            API_CONFIG.ENDPOINTS.CHAT_REGULAR
           );
-        } finally {
-          setLoadingTTS(false);
+          const regularResponse = await fetch(regularUrl, {
+            method: "POST",
+            headers: API_CONFIG.getHeaders(),
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!regularResponse.ok) {
+            throw new Error(`API error: ${regularResponse.status}`);
+          }
+
+          const responseData = await regularResponse.json();
+          console.log("Received direct response:", responseData);
+
+          // Update the conversation ID if provided
+          if (responseData.conversation_id) {
+            newConversationId = responseData.conversation_id;
+            setConversationId(responseData.conversation_id);
+            await AsyncStorage.setItem(
+              "conversation_id",
+              responseData.conversation_id
+            );
+          }
+
+          // Update the message with the response
+          accumulatedResponse = responseData.message || "";
+
+          setMessages((prev) => {
+            const updatedMessages = [...prev];
+            const botMessageIndex = updatedMessages.findIndex(
+              (msg) => msg.id === botResponseId
+            );
+
+            if (botMessageIndex !== -1) {
+              updatedMessages[botMessageIndex] = {
+                ...updatedMessages[botMessageIndex],
+                text: accumulatedResponse,
+                images: responseData.images || [],
+              };
+            }
+
+            return updatedMessages;
+          });
+        } catch (fallbackError) {
+          console.error("Fallback request also failed:", fallbackError);
+          throw fallbackError;
+        }
+      }
+
+      // If we reach here and didn't receive any content, consider it an error
+      if (!accumulatedResponse.trim()) {
+        console.warn("No content received from the server");
+        throw new Error("No content received from the server");
+      }
+
+      // Update conversation ID from streaming response
+      if (newConversationId !== conversationId) {
+        setConversationId(newConversationId);
+        await AsyncStorage.setItem("conversation_id", newConversationId);
+      }
+
+      // Automatically play TTS if enabled
+      if (autoPlayTTS && accumulatedResponse) {
+        try {
+          console.log(
+            "Playing TTS for response:",
+            accumulatedResponse.substring(0, 50) + "..."
+          );
+          await playTTS(accumulatedResponse, botResponseId);
+        } catch (ttsError) {
+          console.error("Error playing TTS after chat completion:", ttsError);
         }
       }
     } catch (error) {
-      console.error("Chat Error:", error);
-      const errorMessage = {
-        id: messages.length + 2,
-        text:
-          language === "ar"
-            ? "عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً."
-            : "Sorry, something went wrong. Please try again later.",
-        isUser: false,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      console.error("Chat streaming error:", error);
+
+      // Get the existing messages
+      setMessages((prev) => {
+        const updatedMessages = [...prev];
+
+        // Find if we have a placeholder message from this conversation
+        const botMessageIndex = updatedMessages.findIndex(
+          (msg) => msg.id === uniqueId + "-bot"
+        );
+
+        if (botMessageIndex !== -1) {
+          // Update the existing placeholder with the error message instead of adding a new one
+          updatedMessages[botMessageIndex] = {
+            ...updatedMessages[botMessageIndex],
+            text:
+              language === "ar"
+                ? "عذراً، حدث خطأ أثناء محاولة الاتصال بخدمة الدردشة. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى."
+                : "Sorry, there was an error connecting to the chat service. Please check your internet connection and try again.",
+          };
+        } else {
+          // If no placeholder exists, add a new error message
+          updatedMessages.push({
+            id: uniqueId + "-error",
+            text:
+              language === "ar"
+                ? "عذراً، حدث خطأ ما. يرجى المحاولة مرة أخرى لاحقاً."
+                : "Sorry, something went wrong. Please try again later.",
+            isUser: false,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          });
+        }
+
+        return updatedMessages;
+      });
     } finally {
       setIsTyping(false);
     }
